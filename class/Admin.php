@@ -77,7 +77,6 @@ class Admin
                         `phone_number` = :phoneNumber,
                         `updated_by` = :updatedBy,
                         `updated_at` = :updatedAt,
-                        `img` = :img
                         WHERE id = :id";
                 
                 $stmt = $this->conn->prepare($sql);
@@ -91,7 +90,6 @@ class Admin
                 $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
                 $stmt->bindParam(':updatedBy', $data['updatedBy']);
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
-                $stmt->bindParam(':img', $data['img']);
             } else {
                 // Exclude password from update (for profile updates)
                 $sql = "UPDATE `admins` SET 
@@ -103,7 +101,6 @@ class Admin
                         `phone_number` = :phoneNumber,
                         `updated_by` = :updatedBy,
                         `updated_at` = :updatedAt,
-                        `img` = :img
                         WHERE id = :id";
                 
                 $stmt = $this->conn->prepare($sql);
@@ -116,7 +113,6 @@ class Admin
                 $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
                 $stmt->bindParam(':updatedBy', $data['updatedBy']);
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
-                $stmt->bindParam(':img', $data['img']);
             }
             
             $stmt->execute();
@@ -141,7 +137,7 @@ class Admin
                     `phone_number` = :phoneNumber,
                     `created_by` = :createdBy,
                     `created_at` = :createdAt,
-                    `img` = :img";
+";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindParam(':firstName', $data['firstName']);
@@ -153,7 +149,6 @@ class Admin
         $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
         $stmt->bindParam(':createdBy', $data['createdBy']);
         $stmt->bindParam(':createdAt', $data['createdAt']);
-        $stmt->bindParam(':img', $data['img']);
         $stmt->execute();
 
         if ($this->conn->lastInsertId()) {
@@ -266,7 +261,7 @@ class Admin
                 'phoneNumber' => $data['phone_number'] ?? null,
                 'createdBy' => $data['created_by'] ?? 'system',
                 'createdAt' => date('Y-m-d H:i:s'),
-                'img' => $data['img'] ?? null
+
             ];
 
             // Insert admin

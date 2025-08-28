@@ -77,7 +77,7 @@ class Customer
                         `updated_at` = :updatedAt,
                         `emergency_contact_name` = :emergencyContactName,
                         `emergency_contact_number` = :emergencyContactNumber,
-                        `img` = :img
+                        `status` = :status
                         WHERE id = :id";
                 
                 $stmt = $this->conn->prepare($sql);
@@ -93,7 +93,7 @@ class Customer
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
                 $stmt->bindParam(':emergencyContactName', $data['emergencyContactName']);
                 $stmt->bindParam(':emergencyContactNumber', $data['emergencyContactNumber']);
-                $stmt->bindParam(':img', $data['img']);
+                $stmt->bindParam(':status', $data['status']);
             } else {
                 // Exclude password from update (for profile updates)
                 $sql = "UPDATE `customers` SET 
@@ -107,7 +107,7 @@ class Customer
                         `updated_at` = :updatedAt,
                         `emergency_contact_name` = :emergencyContactName,
                         `emergency_contact_number` = :emergencyContactNumber,
-                        `img` = :img
+                        `status` = :status
                         WHERE id = :id";
                 
                 $stmt = $this->conn->prepare($sql);
@@ -122,7 +122,7 @@ class Customer
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
                 $stmt->bindParam(':emergencyContactName', $data['emergencyContactName']);
                 $stmt->bindParam(':emergencyContactNumber', $data['emergencyContactNumber']);
-                $stmt->bindParam(':img', $data['img']);
+                $stmt->bindParam(':status', $data['status']);
             }
             
             $stmt->execute();
@@ -150,7 +150,7 @@ class Customer
                     `created_at` = :createdAt,
                     `emergency_contact_name` = :emergencyContactName,
                     `emergency_contact_number` = :emergencyContactNumber,
-                    `img` = :img";
+                    `status` = :status";
 
 
         $stmt = $this->conn->prepare($sql);
@@ -165,7 +165,7 @@ class Customer
         $stmt->bindParam(':createdAt', $data['createdAt']);
         $stmt->bindParam(':emergencyContactName', $data['emergencyContactName']);
         $stmt->bindParam(':emergencyContactNumber', $data['emergencyContactNumber']);
-        $stmt->bindParam(':img', $data['img']);
+        $stmt->bindParam(':status', $data['status']);
         $stmt->execute();
 
         if ($this->conn->lastInsertId()) {
@@ -273,7 +273,7 @@ class Customer
                 'createdAt' => date('Y-m-d H:i:s'),
                 'emergencyContactName' => $data['emergency_contact_name'] ?? '',
                 'emergencyContactNumber' => $data['emergency_contact_number'] ?? '',
-                'img' => $data['img'] ?? null
+                'status' => $data['status'] ?? null
             ];
 
             // Insert user
