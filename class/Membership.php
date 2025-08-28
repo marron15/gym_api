@@ -4,6 +4,8 @@ require_once 'Database.php';
 
 class Membership
 {
+    private const ALLOWED_STATUSES = ['Daily', 'Half Month', 'Monthly'];
+
     public function __construct()
     {
         $db = new Database();
@@ -50,25 +52,33 @@ class Membership
     
     public function updateServicesByID($id, $data)
     {
+        if (!isset($data['status']) || !in_array($data['status'], self::ALLOWED_STATUSES, true)) {
+            return false;
+        }
+
         $sql = "UPDATE `memberships` SET 
-                'description = :description,
-                'price = :price,
-                'created_by = :createdBy,
-                'created_at = :createdAt,
-                'updated_at = :updatedAt,
-                'updated_by = :updatedBy,
-                'status = :status
-                WHERE id = :id";
+                `customer_id` = :customerId,
+                `membership_type` = :membershipType,
+                `start_date` = :startDate,
+                `expiration_date` = :expirationDate,
+                `status` = :status,
+                `created_by` = :createdBy,
+                `created_at` = :createdAt,
+                `updated_at` = :updatedAt,
+                `updated_by` = :updatedBy
+                WHERE `id` = :id";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindParam(':id', $id);
-        $stmt->bindParam(':description', $data['description']);
-        $stmt->bindParam(':price', $data['price']);
-        $stmt->bindParam(':createdBy', $data['createdBy'], PDO::PARAM_INT);
+        $stmt->bindParam(':customerId', $data['customerId']);
+        $stmt->bindParam(':membershipType', $data['membershipType']);
+        $stmt->bindParam(':startDate', $data['startDate']);
+        $stmt->bindParam(':expirationDate', $data['expirationDate']);
+        $stmt->bindParam(':status', $data['status']);
+        $stmt->bindParam(':createdBy', $data['createdBy']);
         $stmt->bindParam(':createdAt', $data['createdAt']);
         $stmt->bindParam(':updatedAt', $data['updatedAt']);
-        $stmt->bindParam(':updatedBy', $data['updatedBy'], PDO::PARAM_INT);
-        $stmt->bindParam(':status', $data['status'], PDO::PARAM_INT);
+        $stmt->bindParam(':updatedBy', $data['updatedBy']);
         $stmt->execute();
 
         if ($stmt->rowCount() > 0) {
@@ -80,23 +90,31 @@ class Membership
 
     public function store($data)
     {
+        if (!isset($data['status']) || !in_array($data['status'], self::ALLOWED_STATUSES, true)) {
+            return false;
+        }
+
         $sql = "INSERT INTO `memberships`
-                SET `description` = :description,
-                    `price` = :price,
+                SET `customer_id` = :customerId,
+                    `membership_type` = :membershipType,
+                    `start_date` = :startDate,
+                    `expiration_date` = :expirationDate,
+                    `status` = :status,
                     `created_by` = :createdBy,
                     `created_at` = :createdAt,
                     `updated_at` = :updatedAt,
-                    `updated_by` = :updatedBy,
-                    `status` = :status";
+                    `updated_by` = :updatedBy";
 
         $stmt = $this->conn->prepare($sql);
-        $stmt->bindParam(':description', $data['description']);
-        $stmt->bindParam(':price', $data['price']);
-        $stmt->bindParam(':createdBy', $data['createdBy'],  PDO::PARAM_INT);
+        $stmt->bindParam(':customerId', $data['customerId']);
+        $stmt->bindParam(':membershipType', $data['membershipType']);
+        $stmt->bindParam(':startDate', $data['startDate']);
+        $stmt->bindParam(':expirationDate', $data['expirationDate']);
+        $stmt->bindParam(':status', $data['status']);
+        $stmt->bindParam(':createdBy', $data['createdBy']);
         $stmt->bindParam(':createdAt', $data['createdAt']);
         $stmt->bindParam(':updatedAt', $data['updatedAt']);
-        $stmt->bindParam(':updatedBy', $data['updatedBy'], PDO::PARAM_INT);
-        $stmt->bindParam(':status', $data['status'], PDO::PARAM_INT);
+        $stmt->bindParam(':updatedBy', $data['updatedBy']);
         $stmt->execute();
 
         if ($this->conn->lastInsertId()) {
