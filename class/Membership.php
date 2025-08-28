@@ -35,6 +35,18 @@ class Membership
         return $result;
     }
 
+    public function getByCustomerId($customerId)
+    {
+        $sql = "SELECT * FROM `memberships` WHERE `customer_id` = :customerId ORDER BY `created_at` DESC LIMIT 1";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':customerId', $customerId);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $result;
+    }
+
     public function deleteById($id)
     {
         $sql = "DELETE FROM `memberships` WHERE id = :id";
