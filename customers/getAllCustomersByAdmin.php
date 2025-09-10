@@ -25,7 +25,19 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 try {
     // Create customer instance and get all customers with passwords (admin access)
     $customer = new Customer();
+    
+    // Get customers with passwords and add status information
     $customers = $customer->getAllWithPasswords(); // This will include passwords
+    
+    // Process customers to ensure status field is present
+    if ($customers && is_array($customers)) {
+        foreach ($customers as &$customerData) {
+            // Ensure status field exists, default to 'active' if not set
+            if (!isset($customerData['status']) || empty($customerData['status'])) {
+                $customerData['status'] = 'active';
+            }
+        }
+    }
     
     if ($customers !== false) {
         http_response_code(200);

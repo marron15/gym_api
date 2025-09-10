@@ -17,13 +17,92 @@ class Customer
 
     public function getAll()
     {
-        $sql = "SELECT * FROM `customers`";
+        $sql = "SELECT * FROM `customers` ORDER BY `created_at` DESC";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         return $result;
+    }
+
+    public function getActiveCustomers()
+    {
+        $sql = "SELECT * FROM `customers` WHERE `status` = 'active' ORDER BY `created_at` DESC";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $result;
+    }
+
+    public function getInactiveCustomers()
+    {
+        $sql = "SELECT * FROM `customers` WHERE `status` = 'inactive' ORDER BY `created_at` DESC";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $result;
+    }
+
+    public function getArchivedCustomers()
+    {
+        $sql = "SELECT * FROM `customers` WHERE `status` = 'archived' ORDER BY `created_at` DESC";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $result;
+    }
+
+    public function getCustomersByStatus($status)
+    {
+        // Validate status values
+        $validStatuses = ['active', 'inactive', 'archived'];
+        if (!in_array($status, $validStatuses)) {
+            return [];
+        }
+
+        $sql = "SELECT * FROM `customers` WHERE `status` = :status ORDER BY `created_at` DESC";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':status', $status);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $result;
+    }
+
+    public function getCustomerStatistics()
+    {
+        try {
+            $sql = "SELECT 
+                        COUNT(*) as total_customers,
+                        SUM(CASE WHEN `status` = 'active' THEN 1 ELSE 0 END) as active_customers,
+                        SUM(CASE WHEN `status` = 'inactive' THEN 1 ELSE 0 END) as inactive_customers,
+                        SUM(CASE WHEN `status` = 'archived' THEN 1 ELSE 0 END) as archived_customers,
+                        SUM(CASE WHEN `status` IS NULL OR `status` = '' THEN 1 ELSE 0 END) as no_status_customers
+                    FROM `customers`";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            return $result;
+        } catch (Exception $e) {
+            error_log("Error getting customer statistics: " . $e->getMessage());
+            return [
+                'total_customers' => 0,
+                'active_customers' => 0,
+                'inactive_customers' => 0,
+                'archived_customers' => 0,
+                'no_status_customers' => 0
+            ];
+        }
     }
 
     public function getById($id)
@@ -52,6 +131,106 @@ class Customer
 
         return false;
     }
+
+    public function archiveCustomerByID($id)
+    {
+        $sql = "UPDATE `customers` SET `status` = 'inactive' WHERE `id` = :id";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function activateCustomerByID($id)
+    {
+        $sql = "UPDATE `customers` SET `status` = 'active' WHERE `id` = :id";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function updateCustomerStatus($id, $status)
+    {
+        // Validate status values
+        $validStatuses = ['active', 'inactive', 'archived'];
+        if (!in_array($status, $validStatuses)) {
+            return false;
+        }
+
+        $sql = "UPDATE `customers` SET `status` = :status WHERE `id` = :id";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':status', $status);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function bulkUpdateCustomerStatus($customerIds, $status)
+    {
+        // Validate status values
+        $validStatuses = ['active', 'inactive', 'archived'];
+        if (!in_array($status, $validStatuses)) {
+            return false;
+        }
+
+        if (empty($customerIds) || !is_array($customerIds)) {
+            return false;
+        }
+
+        try {
+            // Create placeholders for the IN clause
+            $placeholders = str_repeat('?,', count($customerIds) - 1) . '?';
+            $sql = "UPDATE `customers` SET `status` = ? WHERE `id` IN ($placeholders)";
+
+            $stmt = $this->conn->prepare($sql);
+            
+            // Bind status first, then all IDs
+            $params = array_merge([$status], $customerIds);
+            $stmt->execute($params);
+
+            return $stmt->rowCount() > 0;
+        } catch (Exception $e) {
+            error_log("Error bulk updating customer status: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function searchCustomers($query, $status = null)
+    {
+        try {
+            $sql = "SELECT * FROM `customers` WHERE 
+                    (`first_name` LIKE :query OR 
+                     `last_name` LIKE :query OR 
+                     `email` LIKE :query OR 
+                     `phone_number` LIKE :query)";
+            
+            $params = [':query' => "%$query%"];
+            
+            if ($status !== null) {
+                $sql .= " AND `status` = :status";
+                $params[':status'] = $status;
+            }
+            
+            $sql .= " ORDER BY `created_at` DESC";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute($params);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            return $result;
+        } catch (Exception $e) {
+            error_log("Error searching customers: " . $e->getMessage());
+            return [];
+        }
+    }
+
 
     public function updateCustomersByID($id, $data)
     {
@@ -273,7 +452,7 @@ class Customer
                 'createdAt' => date('Y-m-d H:i:s'),
                 'emergencyContactName' => $data['emergency_contact_name'] ?? '',
                 'emergencyContactNumber' => $data['emergency_contact_number'] ?? '',
-                'status' => $data['status'] ?? null
+                'status' => $data['status'] ?? 'active'
             ];
 
             // Insert user

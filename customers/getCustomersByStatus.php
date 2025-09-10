@@ -1,8 +1,4 @@
 <?php
-// Suppress any output before JSON
-error_reporting(0);
-ini_set('display_errors', 0);
-
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET');
@@ -27,15 +23,59 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 try {
+    // Get status from query parameter
+    $status = $_GET['status'] ?? null;
+    
+    // Validate status parameter
+    if ($status !== null) {
+        $validStatuses = ['active', 'inactive', 'archived'];
+        if (!in_array($status, $validStatuses)) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid status. Must be one of: active, inactive, archived'
+            ]);
+            exit();
+        }
+    }
+    
+    // Create customer instance
     $customer = new Customer();
-    // Fetch customers including their address details
-    $result = $customer->getAllWithAddresses();
+    
+    // Get customers based on status
+    if ($status === null) {
+        // Get all customers
+        $result = $customer->getAllWithAddresses();
+    } else {
+        // Get customers by specific status
+        $result = $customer->getCustomersByStatus($status);
+        
+        // If we have addresses, enrich the data
+        if ($result && is_array($result)) {
+            foreach ($result as &$customerData) {
+                // Get address details for each customer
+                $addressDetails = $customer->getCustomerAddressDetails($customerData['id']);
+                if ($addressDetails) {
+                    $customerData['address'] = $addressDetails['street'] . ', ' . 
+                                             $addressDetails['city'] . ', ' . 
+                                             $addressDetails['state'] . ', ' . 
+                                             $addressDetails['postal_code'] . ', ' . 
+                                             $addressDetails['country'];
+                    $customerData['address_details'] = $addressDetails;
+                } else {
+                    $customerData['address'] = null;
+                    $customerData['address_details'] = null;
+                }
+            }
+        }
+    }
     
     if ($result !== false && is_array($result)) {
-        // Process the data to add computed fields like full_name and format properly
+        // Process the data to add computed fields
         $processedData = [];
         foreach ($result as $customerData) {
-            // Password is already removed in getAllWithAddresses()
+            // Remove password for security
+            unset($customerData['password']);
             
             // Add computed full_name field
             $customerData['full_name'] = trim($customerData['first_name'] . ' ' . $customerData['last_name']);
@@ -52,7 +92,7 @@ try {
                 'birthdate' => $customerData['birthdate'],
                 'emergency_contact_name' => $customerData['emergency_contact_name'],
                 'emergency_contact_number' => $customerData['emergency_contact_number'],
-                'status' => $customerData['status'] ?? 'active',
+                'status' => $customerData['status'],
                 'created_at' => $customerData['created_at'],
                 'updated_at' => $customerData['updated_at']
             ];
@@ -76,22 +116,26 @@ try {
         http_response_code(200);
         echo json_encode([
             'success' => true,
-            'message' => 'Customer retrieved successfully',
-            'data' => $processedData
+            'message' => 'Customers retrieved successfully',
+            'data' => $processedData,
+            'filters' => [
+                'status' => $status,
+                'total_count' => count($processedData)
+            ]
         ]);
     } else {
         http_response_code(500);
         echo json_encode([
             'success' => false,
             'message' => 'Failed to retrieve customer data'
-        ], JSON_PRETTY_PRINT);
+        ]);
     }
+    
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => 'Internal server error: ' . $e->getMessage(),
-        'error' => $e->getMessage()
-    ], JSON_PRETTY_PRINT);
+        'message' => 'Internal server error: ' . $e->getMessage()
+    ]);
 }
 ?>
