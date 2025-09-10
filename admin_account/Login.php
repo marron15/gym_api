@@ -21,13 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Invalid JSON input');
         }
 
-        // Validate required fields
-        if (empty($input['email']) || empty($input['password'])) {
-            throw new Exception('Email and password are required');
+        // Validate required fields (phone_number + password)
+        if (empty($input['phone_number']) || empty($input['password'])) {
+            throw new Exception('Contact number and password are required');
         }
 
         $admin = new Admin();
-        $result = $admin->login($input['email'], $input['password']);
+        $result = $admin->login($input['phone_number'], $input['password']);
 
         if ($result['success']) {
             echo json_encode($result);

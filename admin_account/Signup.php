@@ -39,6 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Password must be at least 6 characters long');
         }
 
+        // Validate phone number if provided (exactly 11 digits)
+        if (isset($input['phone_number']) && $input['phone_number'] !== null) {
+            $phone = preg_replace('/\D/', '', $input['phone_number']);
+            if ($phone !== '' && strlen($phone) !== 11) {
+                throw new Exception('Phone number must be exactly 11 digits');
+            }
+        }
+
         $admin = new Admin();
         $result = $admin->signup($input);
 

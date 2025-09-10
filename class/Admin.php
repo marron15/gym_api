@@ -76,7 +76,7 @@ class Admin
                         `password` = :password,
                         `phone_number` = :phoneNumber,
                         `updated_by` = :updatedBy,
-                        `updated_at` = :updatedAt,
+                        `updated_at` = :updatedAt
                         WHERE id = :id";
                 
                 $stmt = $this->conn->prepare($sql);
@@ -100,7 +100,7 @@ class Admin
                         `email_address` = :emailAddress,
                         `phone_number` = :phoneNumber,
                         `updated_by` = :updatedBy,
-                        `updated_at` = :updatedAt,
+                        `updated_at` = :updatedAt
                         WHERE id = :id";
                 
                 $stmt = $this->conn->prepare($sql);
@@ -115,9 +115,10 @@ class Admin
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
             }
             
-            $stmt->execute();
+            $executed = $stmt->execute();
 
-            return $stmt->rowCount() > 0;
+            // Consider the update successful if the statement executed, even if 0 rows changed
+            return $executed;
             
         } catch (Exception $e) {
             error_log("Error updating admin: " . $e->getMessage());
@@ -136,8 +137,7 @@ class Admin
                     `password` = :password,
                     `phone_number` = :phoneNumber,
                     `created_by` = :createdBy,
-                    `created_at` = :createdAt,
-";
+                    `created_at` = :createdAt";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindParam(':firstName', $data['firstName']);
@@ -158,20 +158,20 @@ class Admin
         return false;       
     }
 
-    public function login($email, $password)
+    public function login($phoneNumber, $password)
     {
         try {
-            // Get admin by email
-            $sql = "SELECT * FROM `admins` WHERE `email_address` = :email LIMIT 1";
+            // Get admin by contact number
+            $sql = "SELECT * FROM `admins` WHERE `phone_number` = :phone LIMIT 1";
             $stmt = $this->conn->prepare($sql);
-            $stmt->bindParam(':email', $email);
+            $stmt->bindParam(':phone', $phoneNumber);
             $stmt->execute();
             $admin = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$admin) {
                 return [
                     'success' => false,
-                    'message' => 'Invalid email or password'
+                    'message' => 'Invalid contact number or password'
                 ];
             }
             
@@ -205,7 +205,7 @@ class Admin
             } else {
                 return [
                     'success' => false,
-                    'message' => 'Invalid email or password'
+                    'message' => 'Invalid contact number or password'
                 ];
             }
             

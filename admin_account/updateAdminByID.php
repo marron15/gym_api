@@ -29,18 +29,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'POST
         }
 
         // Map Flutter field names to PHP field names
-        $firstName = $input['firstName'] ?? $input['first_name'] ?? null;
-        $middleName = $input['middleName'] ?? $input['middle_name'] ?? null;
-        $lastName = $input['lastName'] ?? $input['last_name'] ?? null;
-        $emailAddress = $input['emailAddress'] ?? $input['email_address'] ?? null;
-        $phoneNumber = $input['phoneNumber'] ?? $input['phone_number'] ?? null;
-        $dateOfBirth = $input['dateOfBirth'] ?? $input['date_of_birth'] ?? null;
+        $firstName = trim(($input['firstName'] ?? $input['first_name'] ?? '')) ?: null;
+        $middleName = trim(($input['middleName'] ?? $input['middle_name'] ?? '')) ?: null;
+        $lastName = trim(($input['lastName'] ?? $input['last_name'] ?? '')) ?: null;
+        $emailAddress = trim(($input['emailAddress'] ?? $input['email_address'] ?? '')) ?: null;
+        $phoneNumber = trim(($input['phoneNumber'] ?? $input['phone_number'] ?? '')) ?: null;
+        $dateOfBirth = trim(($input['dateOfBirth'] ?? $input['date_of_birth'] ?? '')) ?: null;
         $password = $input['password'] ?? null;
         $img = $input['img'] ?? null;
 
         // Validate required fields
         if (empty($firstName) || empty($lastName) || empty($emailAddress)) {
             throw new Exception('First name, last name, and email address are required');
+        }
+
+        // Validate phone number if provided (exactly 11 digits)
+        if (!empty($phoneNumber)) {
+            $digits = preg_replace('/\D/', '', $phoneNumber);
+            if ($digits !== '' && strlen($digits) !== 11) {
+                throw new Exception('Phone number must be exactly 11 digits');
+            }
         }
 
         // Prepare data for update
@@ -75,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'POST
         }
 
         // Check if email is being changed and if it already exists
-        if ($emailAddress !== $existingAdmin[0]['email_address']) {
+        if (!empty($emailAddress) && strtolower($emailAddress) !== strtolower($existingAdmin[0]['email_address'])) {
             $adminWithEmail = $admin->getByEmail($emailAddress);
             if ($adminWithEmail) {
                 http_response_code(400);
