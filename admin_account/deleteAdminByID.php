@@ -42,14 +42,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE' || $_SERVER['REQUEST_METHOD'] === 'P
             exit;
         }
 
-        // Delete admin
+        // Archive admin (soft delete)
         if ($admin->deleteById($id)) {
             echo json_encode([
                 'success' => true,
-                'message' => 'Admin deleted successfully'
+                'message' => 'Admin archived successfully'
             ]);
         } else {
-            throw new Exception('Failed to delete admin account');
+            throw new Exception('Failed to archive admin account');
         }
 
     } catch (Exception $e) {

@@ -41,17 +41,25 @@ class Admin
 
     public function deleteById($id)
     {
-        $sql = "DELETE FROM `admins` WHERE id = :id";
+        // Soft delete: archive admin by setting status to 'inactive'
+        $sql = "UPDATE `admins` SET `status` = 'inactive', `updated_at` = NOW() WHERE id = :id";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindParam(':id', $id);
-        $stmt->execute();
+        $executed = $stmt->execute();
 
-        if ($stmt->rowCount() > 0) {
-            return true;
-        }
+        // Treat already-inactive (0 affected rows) as success
+        return $executed;
+    }
 
-        return false;
+    public function activateById($id)
+    {
+        $sql = "UPDATE `admins` SET `status` = 'active', `updated_at` = NOW() WHERE id = :id";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $executed = $stmt->execute();
+        // Also consider no-op as success
+        return $executed;
     }
 
     public function updateAdminByID($id, $data)
