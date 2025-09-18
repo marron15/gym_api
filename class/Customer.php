@@ -413,6 +413,62 @@ class Customer
         }
     }
 
+    public function loginByContact($contactNumber, $password)
+    {
+        try {
+            // Get user by contact number
+            $sql = "SELECT * FROM `customers` WHERE `phone_number` = :contact LIMIT 1";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindParam(':contact', $contactNumber);
+            $stmt->execute();
+            $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$customer) {
+                return [
+                    'success' => false,
+                    'message' => 'Invalid contact number or password'
+                ];
+            }
+
+            // Plain text comparison as per existing behavior
+            $passwordVerified = ($password === $customer['password']);
+
+            if ($passwordVerified) {
+                unset($customer['password']);
+
+                $tokenPayload = [
+                    'customer_id' => $customer['id'],
+                    'email' => $customer['email'],
+                    'first_name' => $customer['first_name'],
+                    'last_name' => $customer['last_name']
+                ];
+
+                $accessToken = JWT::encode($tokenPayload, 24);
+                $refreshToken = JWT::encode($tokenPayload, 168);
+
+                return [
+                    'success' => true,
+                    'message' => 'Login successful',
+                    'customer' => $customer,
+                    'access_token' => $accessToken,
+                    'refresh_token' => $refreshToken,
+                    'token_type' => 'Bearer',
+                    'expires_in' => 24 * 3600
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Invalid contact number or password'
+                ];
+            }
+        } catch (PDOException $e) {
+            return [
+                'success' => false,
+                'message' => 'Database error: ' . $e->getMessage()
+            ];
+        }
+    }
+
     public function getByEmail($email)
     {
         $sql = "SELECT * FROM `customers` WHERE `email` = :email";

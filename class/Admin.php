@@ -179,7 +179,8 @@ class Admin
             if (!$admin) {
                 return [
                     'success' => false,
-                    'message' => 'Invalid contact number or password'
+                    'message' => 'Wrong Contact Number',
+                    'field' => 'phone'
                 ];
             }
             
@@ -213,7 +214,8 @@ class Admin
             } else {
                 return [
                     'success' => false,
-                    'message' => 'Invalid contact number or password'
+                    'message' => 'Wrong Password',
+                    'field' => 'password'
                 ];
             }
             
