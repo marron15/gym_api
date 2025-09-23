@@ -9,6 +9,24 @@ class Products
         $this->conn = $db->connection();
     }
 
+    private function hasColumn($column)
+    {
+        try {
+            $stmt = $this->conn->prepare("SHOW COLUMNS FROM `products` LIKE :col");
+            $stmt->bindParam(':col', $column);
+            $stmt->execute();
+            return (bool)$stmt->fetch();
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function updatedByColumn()
+    {
+        // Some schemas use `update_by` instead of `updated_by`
+        return $this->hasColumn('updated_by') ? 'updated_by' : ($this->hasColumn('update_by') ? 'update_by' : null);
+    }
+
     public function getAll()
     {
         $sql = "SELECT * FROM `products`";
@@ -49,24 +67,29 @@ class Products
 
     public function updateProductsByID($id, $data)
     {
+        $updatedByCol = $this->updatedByColumn();
+        $hasStatus = $this->hasColumn('status');
+
         $sql = "UPDATE `products` SET 
                 `name` = :name,
                 `description` = :description,
-                `price` = :price,
-                `status` = :status,
-                `img` = :img,
-                `updated_by` = :updatedBy,
-                `updated_at` = :updatedAt
+                " . ($hasStatus ? "`status` = :status,\n                " : "") .
+                "`img` = :img,
+                " . ($updatedByCol ? "`$updatedByCol` = :updatedBy,\n                " : "") .
+                "`updated_at` = :updatedAt
                 WHERE id = :id";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindParam(':id', $id);
         $stmt->bindParam(':name', $data['name']);
         $stmt->bindParam(':description', $data['description']);
-        $stmt->bindParam(':price', $data['price']);
-        $stmt->bindParam(':status', $data['status'], PDO::PARAM_INT);
+        if ($hasStatus) {
+            $stmt->bindParam(':status', $data['status']);
+        }
         $stmt->bindParam(':img', $data['img']);
-        $stmt->bindParam(':updatedBy', $data['updatedBy'], PDO::PARAM_INT);
+        if ($updatedByCol) {
+            $stmt->bindParam(':updatedBy', $data['updatedBy'], PDO::PARAM_INT);
+        }
         $stmt->bindParam(':updatedAt', $data['updatedAt']);
         $stmt->execute();
 
@@ -79,22 +102,27 @@ class Products
 
     public function store($data)
     {
+        $hasStatus = $this->hasColumn('status');
+        $hasCreatedBy = $this->hasColumn('created_by');
+
         $sql = "INSERT INTO `products`
                 SET `name` = :name,
                     `description` = :description,
-                    `price` = :price,
-                    `status` = :status,
-                    `img` = :img,
-                    `created_by` = :createdBy,
-                    `created_at` = :createdAt";
+                    " . ($hasStatus ? "`status` = :status,\n                    " : "") .
+                    "`img` = :img,
+                    " . ($hasCreatedBy ? "`created_by` = :createdBy,\n                    " : "") .
+                    "`created_at` = :createdAt";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindParam(':name', $data['name']);
         $stmt->bindParam(':description', $data['description']);
-        $stmt->bindParam(':price', $data['price']);
-        $stmt->bindParam(':status', $data['status'], PDO::PARAM_INT);
+        if ($hasStatus) {
+            $stmt->bindParam(':status', $data['status']);
+        }
         $stmt->bindParam(':img', $data['img']);
-        $stmt->bindParam(':createdBy', $data['createdBy'], PDO::PARAM_INT);
+        if ($hasCreatedBy) {
+            $stmt->bindParam(':createdBy', $data['createdBy'], PDO::PARAM_INT);
+        }
         $stmt->bindParam(':createdAt', $data['createdAt']);
         $stmt->execute();
 
@@ -107,14 +135,32 @@ class Products
 
     public function getByStatus($status)
     {
-        $sql = "SELECT * FROM `products` WHERE `status` = :status";
+        if (!$this->hasColumn('status')) {
+            return $this->getAll();
+        }
 
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bindParam(':status', $status, PDO::PARAM_INT);
+        // Normalize to support both numeric and string schemas
+        $statusStr = is_numeric($status)
+            ? ((intval($status) === 1) ? 'active' : 'inactive')
+            : strtolower(trim((string)$status));
+
+        $statusNum = null;
+        if ($statusStr === 'active') $statusNum = '1';
+        if ($statusStr === 'inactive') $statusNum = '0';
+
+        if ($statusNum !== null) {
+            $sql = "SELECT * FROM `products` WHERE `status` = :s1 OR `status` = :s2";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindParam(':s1', $statusStr);
+            $stmt->bindParam(':s2', $statusNum);
+        } else {
+            $sql = "SELECT * FROM `products` WHERE `status` = :s1";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindParam(':s1', $statusStr);
+        }
+
         $stmt->execute();
-        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        return $result;
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function getActiveProducts()
@@ -125,6 +171,22 @@ class Products
     public function getInactiveProducts()
     {
         return $this->getByStatus(0);
+    }
+
+    public function setStatusById($id, $status)
+    {
+        if (!$this->hasColumn('status')) {
+            return false;
+        }
+        $sql = "UPDATE `products` SET `status` = :status, `updated_at` = :updatedAt WHERE id = :id";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->bindParam(':status', $status);
+        $stmt->bindParam(':updatedAt', date('Y-m-d H:i:s'));
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
     }
 
     public function searchByName($name)

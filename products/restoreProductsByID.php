@@ -17,8 +17,8 @@ $input = file_get_contents('php://input');
 $json = json_decode($input, true);
 $id = (int)($_POST['id'] ?? ($json['id'] ?? 0));
 
-// Archive instead of hard delete: set status to 'inactive'
-$result = $products->setStatusById($id, 'inactive');
+// Restore by setting status to 'active'
+$result = $products->setStatusById($id, 'active');
 
 echo json_encode(['success' => $result]);
 
