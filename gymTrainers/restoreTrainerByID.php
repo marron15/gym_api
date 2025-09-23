@@ -13,16 +13,14 @@ require_once '../class/Trainers.php';
 
 $trainers = new Trainers();
 
-$result = $trainers->getAll();
+$input = file_get_contents('php://input');
+$json = json_decode($input, true);
+$id = (int)($_POST['id'] ?? ($json['id'] ?? 0));
 
-// Ensure is_archived field exists in response (default 0)
-foreach ($result as &$row) {
-    if (!array_key_exists('is_archived', $row)) {
-        $row['is_archived'] = 0;
-    }
-}
-unset($row);
+$result = $trainers->restoreById($id);
 
-echo json_encode($result);
+echo json_encode(['success' => $result]);
 
 ?>
+
+

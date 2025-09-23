@@ -47,19 +47,20 @@ class Trainers
 
         return false;
     }
+
+    
     
     public function updateServicesByID($id, $data)
     {
         $sql = "UPDATE `trainers` SET 
-                'first_name = :firstName,
-                'middle_name = :middleName,
-                'last_name = :lastName,
-                'contact_number = :contactNumber,
-                'created_by = :createdBy,
-                'created_at = :createdAt,
-                'updated_at = :updatedAt,
-                'updated_by = :updatedBy
-                
+                `first_name` = :firstName,
+                `middle_name` = :middleName,
+                `last_name` = :lastName,
+                `contact_number` = :contactNumber,
+                `created_by` = :createdBy,
+                `created_at` = :createdAt,
+                `updated_at` = :updatedAt,
+                `updated_by` = :updatedBy
                 WHERE id = :id";
 
         $stmt = $this->conn->prepare($sql);
@@ -88,6 +89,7 @@ class Trainers
                     `middle_name` = :middleName,
                     `last_name` = :lastName,
                     `contact_number` = :contactNumber,
+                    `status` = :status,
                     `created_by` = :createdBy,
                     `created_at` = :createdAt,
                     `updated_at` = :updatedAt,
@@ -98,6 +100,7 @@ class Trainers
         $stmt->bindParam(':middleName', $data['middleName']);
         $stmt->bindParam(':lastName', $data['lastName']);
         $stmt->bindParam(':contactNumber', $data['contactNumber']);
+        $stmt->bindParam(':status', $data['status']);
         $stmt->bindParam(':createdBy', $data['createdBy'],  PDO::PARAM_INT);
         $stmt->bindParam(':createdAt', $data['createdAt']);
         $stmt->bindParam(':updatedAt', $data['updatedAt']);
@@ -109,6 +112,31 @@ class Trainers
         }
 
         return false;       
+    }
+    public function setStatusById($id, $status)
+    {
+        $sql = "UPDATE `trainers` SET `status` = :status, `updated_at` = NOW() WHERE id = :id";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->bindParam(':status', $status);
+        $stmt->execute();
+
+        if ($stmt->rowCount() > 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function archiveById($id)
+    {
+        return $this->setStatusById($id, 'inactive');
+    }
+
+    public function restoreById($id)
+    {
+        return $this->setStatusById($id, 'active');
     }
 }
 ?>
