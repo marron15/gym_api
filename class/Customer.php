@@ -772,6 +772,59 @@ class Customer
     }
 
     /**
+     * Get count of new members for the current week grouped by weekday
+     * Returns associative array like ['Mon'=>3,'Tue'=>2,...]
+     */
+    public function getNewMembersThisWeek()
+    {
+        $sql = "SELECT DAYNAME(`created_at`) as day_name, COUNT(*) as cnt
+                FROM `customers`
+                WHERE YEARWEEK(`created_at`, 1) = YEARWEEK(CURDATE(), 1)
+                GROUP BY DAYNAME(`created_at`)";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Initialize all days to 0 (Mon..Sun)
+        $order = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+        $result = [];
+        foreach ($order as $d) { $result[$d] = 0; }
+        foreach ($rows as $r) {
+            $name = $r['day_name'];
+            if (isset($result[$name])) {
+                $result[$name] = (int)$r['cnt'];
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Get count of new members for the current month grouped by ISO week index (1..5)
+     */
+    public function getNewMembersByWeekOfMonth()
+    {
+        $sql = "SELECT WEEK(`created_at`, 1) - WEEK(DATE_SUB(`created_at`, INTERVAL DAYOFMONTH(`created_at`) - 1 DAY), 1) + 1 AS week_of_month,
+                       COUNT(*) as cnt
+                FROM `customers`
+                WHERE YEAR(`created_at`) = YEAR(CURDATE()) AND MONTH(`created_at`) = MONTH(CURDATE())
+                GROUP BY week_of_month";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = [1=>0,2=>0,3=>0,4=>0];
+        foreach ($rows as $r) {
+            $idx = (int)$r['week_of_month'];
+            if ($idx >= 1 && $idx <= 4) {
+                $result[$idx] = (int)$r['cnt'];
+            }
+        }
+        return $result;
+    }
+
+    /**
      * Get customer address details for profile editing
      */
     public function getCustomerAddressDetails($customerId)
