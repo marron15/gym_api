@@ -22,16 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Validate required fields
-        $requiredFields = ['first_name', 'last_name', 'email_address', 'password'];
+        $requiredFields = ['first_name', 'last_name', 'password'];
         foreach ($requiredFields as $field) {
             if (empty($input[$field])) {
                 throw new Exception("Missing required field: $field");
             }
-        }
-
-        // Validate email format
-        if (!filter_var($input['email_address'], FILTER_VALIDATE_EMAIL)) {
-            throw new Exception('Invalid email format');
         }
 
         // Validate password length

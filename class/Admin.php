@@ -65,12 +65,8 @@ class Admin
     public function updateAdminByID($id, $data)
     {
         try {
-            // Handle date_of_birth - provide default if null
+            // Handle date_of_birth - keep as null if not provided
             $dateOfBirth = $data['dateOfBirth'] ?? null;
-            if (empty($dateOfBirth)) {
-                // Set a default date (18 years ago) if none provided
-                $dateOfBirth = date('Y-m-d', strtotime('-18 years'));
-            }
 
             // Check if password is included in the data
             if (isset($data['password']) && !empty($data['password'])) {
@@ -83,7 +79,6 @@ class Admin
                         `middle_name` = :middleName,
                         `last_name` = :lastName,
                         `date_of_birth` = :dateOfBirth,
-                        `email_address` = :emailAddress,
                         `password` = :password,
                         `phone_number` = :phoneNumber,
                         `updated_by` = :updatedBy,
@@ -96,7 +91,6 @@ class Admin
                 $stmt->bindParam(':middleName', $data['middleName']);
                 $stmt->bindParam(':lastName', $data['lastName']);
                 $stmt->bindParam(':dateOfBirth', $dateOfBirth);
-                $stmt->bindParam(':emailAddress', $data['emailAddress']);
                 $stmt->bindParam(':password', $hashedPassword);
                 $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
                 $stmt->bindParam(':updatedBy', $data['updatedBy']);
@@ -108,7 +102,6 @@ class Admin
                         `middle_name` = :middleName,
                         `last_name` = :lastName,
                         `date_of_birth` = :dateOfBirth,
-                        `email_address` = :emailAddress,
                         `phone_number` = :phoneNumber,
                         `updated_by` = :updatedBy,
                         `updated_at` = :updatedAt
@@ -120,7 +113,6 @@ class Admin
                 $stmt->bindParam(':middleName', $data['middleName']);
                 $stmt->bindParam(':lastName', $data['lastName']);
                 $stmt->bindParam(':dateOfBirth', $dateOfBirth);
-                $stmt->bindParam(':emailAddress', $data['emailAddress']);
                 $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
                 $stmt->bindParam(':updatedBy', $data['updatedBy']);
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
@@ -144,7 +136,6 @@ class Admin
                     `middle_name` = :middleName,
                     `last_name` = :lastName,
                     `date_of_birth` = :dateOfBirth,
-                    `email_address` = :emailAddress,
                     `password` = :password,
                     `phone_number` = :phoneNumber,
                     `created_by` = :createdBy,
@@ -155,7 +146,6 @@ class Admin
         $stmt->bindParam(':middleName', $data['middleName']);
         $stmt->bindParam(':lastName', $data['lastName']);
         $stmt->bindParam(':dateOfBirth', $data['dateOfBirth']);
-        $stmt->bindParam(':emailAddress', $data['emailAddress']);
         $stmt->bindParam(':password', $data['password']);
         $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
         $stmt->bindParam(':createdBy', $data['createdBy']);
@@ -197,7 +187,6 @@ class Admin
                 // Generate JWT token
                 $tokenPayload = [
                     'admin_id' => $admin['id'],
-                    'email' => $admin['email_address'],
                     'first_name' => $admin['first_name'],
                     'last_name' => $admin['last_name']
                 ];
@@ -230,11 +219,11 @@ class Admin
         }
     }
 
-    public function getByEmail($email)
+    public function getByPhoneNumber($phoneNumber)
     {
-        $sql = "SELECT * FROM `admins` WHERE `email_address` = :email";
+        $sql = "SELECT * FROM `admins` WHERE `phone_number` = :phone";
         $stmt = $this->conn->prepare($sql);
-        $stmt->bindParam(':email', $email);
+        $stmt->bindParam(':phone', $phoneNumber);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -244,24 +233,11 @@ class Admin
     public function signup($data)
     {
         try {
-            // Check if email already exists
-            $existingAdmin = $this->getByEmail($data['email_address']);
-            if ($existingAdmin) {
-                return [
-                    'success' => false,
-                    'message' => 'Email already exists'
-                ];
-            }
-
             // Hash password for security
             $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
 
-            // Handle date_of_birth - provide default if null
+            // Handle date_of_birth - keep as null if not provided
             $dateOfBirth = $data['date_of_birth'] ?? null;
-            if (empty($dateOfBirth)) {
-                // Set a default date (18 years ago) if none provided
-                $dateOfBirth = date('Y-m-d', strtotime('-18 years'));
-            }
 
             // Prepare data for insertion
             $insertData = [
@@ -269,24 +245,21 @@ class Admin
                 'middleName' => $data['middle_name'] ?? null,
                 'lastName' => $data['last_name'],
                 'dateOfBirth' => $dateOfBirth,
-                'emailAddress' => $data['email_address'],
                 'password' => $hashedPassword,
                 'phoneNumber' => $data['phone_number'] ?? null,
                 'createdBy' => $data['created_by'] ?? 'system',
                 'createdAt' => date('Y-m-d H:i:s'),
-
             ];
 
             // Insert admin
             if ($this->store($insertData)) {
-                // Get the newly created admin
-                $newAdmin = $this->getByEmail($data['email_address']);
+                // Get the newly created admin by phone number
+                $newAdmin = $this->getByPhoneNumber($data['phone_number']);
                 unset($newAdmin['password']); // Remove password from response
 
                 // Generate JWT token for new admin
                 $tokenPayload = [
                     'admin_id' => $newAdmin['id'],
-                    'email' => $newAdmin['email_address'],
                     'first_name' => $newAdmin['first_name'],
                     'last_name' => $newAdmin['last_name']
                 ];

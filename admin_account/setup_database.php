@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 `middle_name` varchar(255) DEFAULT NULL,
                 `last_name` varchar(255) NOT NULL,
                 `date_of_birth` date DEFAULT NULL,
-                `email_address` varchar(255) NOT NULL UNIQUE,
+                `email_address` varchar(255) DEFAULT NULL,
                 `password` varchar(255) NOT NULL,
                 `phone_number` varchar(20) DEFAULT NULL,
                 `img` longtext DEFAULT NULL,
@@ -45,6 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $conn->exec($createTable);
             $message = "Admins table created successfully";
         } else {
+            $messages = [];
+            
             // Check if date_of_birth column allows NULL
             $checkColumn = $conn->query("SHOW COLUMNS FROM `admins` LIKE 'date_of_birth'");
             $columnInfo = $checkColumn->fetch(PDO::FETCH_ASSOC);
@@ -53,9 +55,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 // Modify column to allow NULL
                 $alterColumn = "ALTER TABLE `admins` MODIFY `date_of_birth` date DEFAULT NULL";
                 $conn->exec($alterColumn);
-                $message = "date_of_birth column modified to allow NULL values";
-            } else {
+                $messages[] = "date_of_birth column modified to allow NULL values";
+            }
+            
+            // Check if email_address column allows NULL
+            $checkEmailColumn = $conn->query("SHOW COLUMNS FROM `admins` LIKE 'email_address'");
+            $emailColumnInfo = $checkEmailColumn->fetch(PDO::FETCH_ASSOC);
+            
+            if ($emailColumnInfo && $emailColumnInfo['Null'] === 'NO') {
+                // Modify column to allow NULL
+                $alterEmailColumn = "ALTER TABLE `admins` MODIFY `email_address` varchar(255) DEFAULT NULL";
+                $conn->exec($alterEmailColumn);
+                $messages[] = "email_address column modified to allow NULL values";
+            }
+            
+            if (empty($messages)) {
                 $message = "Database structure is already correct";
+            } else {
+                $message = implode("; ", $messages);
             }
         }
         

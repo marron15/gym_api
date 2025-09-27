@@ -39,8 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'POST
         $img = $input['img'] ?? null;
 
         // Validate required fields
-        if (empty($firstName) || empty($lastName) || empty($emailAddress)) {
-            throw new Exception('First name, last name, and email address are required');
+        if (empty($firstName) || empty($lastName)) {
+            throw new Exception('First name and last name are required');
         }
 
         // Validate phone number if provided (exactly 11 digits)
@@ -57,7 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'POST
             'middleName' => $middleName,
             'lastName' => $lastName,
             'dateOfBirth' => $dateOfBirth,
-            'emailAddress' => $emailAddress,
             'phoneNumber' => $phoneNumber,
             'updatedBy' => $input['updatedBy'] ?? 'system',
             'updatedAt' => date('Y-m-d H:i:s'),
@@ -82,18 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'POST
             exit;
         }
 
-        // Check if email is being changed and if it already exists
-        if (!empty($emailAddress) && strtolower($emailAddress) !== strtolower($existingAdmin[0]['email_address'])) {
-            $adminWithEmail = $admin->getByEmail($emailAddress);
-            if ($adminWithEmail) {
-                http_response_code(400);
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Email address already exists'
-                ]);
-                exit;
-            }
-        }
 
         // Update admin
         if ($admin->updateAdminByID($id, $adminData)) {

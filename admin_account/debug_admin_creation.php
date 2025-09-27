@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log("Debug: Received data: " . print_r($input, true));
 
         // Check required fields
-        $requiredFields = ['first_name', 'last_name', 'email_address', 'password'];
+        $requiredFields = ['first_name', 'last_name', 'password'];
         foreach ($requiredFields as $field) {
             if (empty($input[$field])) {
                 throw new Exception("Missing required field: $field");
@@ -58,7 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'middle_name' => $input['middle_name'] ?? null,
             'last_name' => $input['last_name'],
             'date_of_birth' => $dateOfBirth,
-            'email_address' => $input['email_address'],
             'password' => $input['password'],
             'phone_number' => $input['phone_number'] ?? null,
             'created_by' => 'system',

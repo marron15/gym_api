@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Validate required fields
-        $requiredFields = ['first_name', 'last_name', 'email_address', 'password'];
+        $requiredFields = ['first_name', 'last_name', 'password'];
         foreach ($requiredFields as $field) {
             if (empty($input[$field])) {
                 throw new Exception("Missing required field: $field");
@@ -29,7 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'middleName' => $input['middle_name'] ?? null,
             'lastName' => $input['last_name'],
             'dateOfBirth' => $input['date_of_birth'],
-            'emailAddress' => $input['email_address'],
             'password' => $input['password'],
             'phoneNumber' => $input['phone_number'],
             'createdBy' => $input['created_by'] ?? 'system',
@@ -39,21 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $admin = new Admin();
         
-        // Check if email already exists
-        $existingAdmin = $admin->getByEmail($input['email_address']);
-        if ($existingAdmin) {
-            http_response_code(400);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Email address already exists'
-            ]);
-            exit;
-        }
-
         // Insert admin
         if ($admin->store($adminData)) {
-            // Get the newly created admin
-            $newAdmin = $admin->getByEmail($input['email_address']);
+            // Get the newly created admin by phone number
+            $newAdmin = $admin->getByPhoneNumber($input['phone_number']);
             unset($newAdmin['password']); // Remove password from response
 
             echo json_encode([
