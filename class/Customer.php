@@ -243,6 +243,9 @@ class Customer
             
             // Check if password is included in the data
             if (isset($data['password']) && !empty($data['password'])) {
+                // Hash the password before storing
+                $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
+                
                 // Include password in update (for password changes)
                 $sql = "UPDATE `customers` SET 
                         `first_name` = :firstName,
@@ -265,7 +268,7 @@ class Customer
                 $stmt->bindParam(':lastName', $data['lastName']);
                 $stmt->bindParam(':middleName', $data['middleName']);
                 $stmt->bindParam(':email', $data['email']);
-                $stmt->bindParam(':password', $data['password']);
+                $stmt->bindParam(':password', $hashedPassword);
                 $stmt->bindParam(':birthdate', $data['birthdate']);
                 $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
                 $stmt->bindParam(':updatedBy', $data['updatedBy']);
@@ -371,8 +374,8 @@ class Customer
                 ];
             }
             
-            // Verify password using plain text comparison (as requested by admin)
-            $passwordVerified = ($password === $customer['password']);
+            // Verify password using password_verify for hashed passwords
+            $passwordVerified = password_verify($password, $customer['password']);
             
             if ($passwordVerified) {
                 // Remove password from response for security
@@ -430,8 +433,8 @@ class Customer
                 ];
             }
 
-            // Plain text comparison as per existing behavior
-            $passwordVerified = ($password === $customer['password']);
+            // Verify password using password_verify for hashed passwords
+            $passwordVerified = password_verify($password, $customer['password']);
 
             if ($passwordVerified) {
                 unset($customer['password']);
@@ -483,25 +486,27 @@ class Customer
     public function signup($data)
     {
         try {
-            // Check if email already exists
-            $existingCustomer = $this->getByEmail($data['email']);
-            if ($existingCustomer) {
-                return [
-                    'success' => false,
-                    'message' => 'Email already exists'
-                ];
+            // Check if email already exists (only if email is provided)
+            if (!empty($data['email'])) {
+                $existingCustomer = $this->getByEmail($data['email']);
+                if ($existingCustomer) {
+                    return [
+                        'success' => false,
+                        'message' => 'Email already exists'
+                    ];
+                }
             }
 
-            // Store password in plain text (as requested by admin)
-            $plainPassword = $data['password'];
+            // Hash password for security
+            $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
 
             // Prepare data for insertion (excluding address - will be stored separately)
             $insertData = [
                 'firstName' => $data['first_name'],
                 'lastName' => $data['last_name'],
                 'middleName' => $data['middle_name'] ?? null,
-                'email' => $data['email'],
-                'password' => $plainPassword,
+                'email' => $data['email'] ?? null,
+                'password' => $hashedPassword,
                 'birthdate' => $data['birthdate'] ?? null,
                 'phoneNumber' => $data['phone_number'] ?? null,
                 'createdBy' => $data['created_by'] ?? 'system',
@@ -513,29 +518,38 @@ class Customer
 
             // Insert user
             if ($this->store($insertData)) {
-                // Get the newly created customer
-                $newCustomer = $this->getByEmail($data['email']);
-                unset($newCustomer['password']); // Remove password from response
+                // Get the newly created customer by ID (since email might be null)
+                $customerId = $this->conn->lastInsertId();
+                $newCustomer = $this->getById($customerId);
+                if (!empty($newCustomer)) {
+                    $newCustomer = $newCustomer[0];
+                    unset($newCustomer['password']); // Remove password from response
+                }
 
                 // Store address in customers_address table if provided
-                if (!empty($data['address'])) {
+                if (!empty($data['address']) && $newCustomer) {
                     $this->storeCustomerAddress($newCustomer['id'], $data['address']);
                 }
 
                 // Add address information to user data
-                $newCustomer = $this->getCustomerWithAddress($newCustomer['id']);
                 if ($newCustomer) {
-                    unset($newCustomer['password']); // Remove password from response again
-                } else {
-                    // Fallback if getUserWithAddress fails
-                    $newCustomer = $this->getByEmail($data['email']);
-                    unset($newCustomer['password']);
+                    $newCustomer = $this->getCustomerWithAddress($newCustomer['id']);
+                    if ($newCustomer) {
+                        unset($newCustomer['password']); // Remove password from response again
+                    } else {
+                        // Fallback if getUserWithAddress fails
+                        $newCustomer = $this->getById($customerId);
+                        if (!empty($newCustomer)) {
+                            $newCustomer = $newCustomer[0];
+                            unset($newCustomer['password']);
+                        }
+                    }
                 }
 
                 // Generate JWT token for new user
                 $tokenPayload = [
                     'customer_id' => $newCustomer['id'],
-                    'email' => $newCustomer['email'],
+                    'email' => $newCustomer['email'] ?? null,
                     'first_name' => $newCustomer['first_name'],
                     'last_name' => $newCustomer['last_name']
                 ];

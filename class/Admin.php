@@ -74,6 +74,9 @@ class Admin
 
             // Check if password is included in the data
             if (isset($data['password']) && !empty($data['password'])) {
+                // Hash the password before storing
+                $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
+                
                 // Include password in update (for password changes)
                 $sql = "UPDATE `admins` SET 
                         `first_name` = :firstName,
@@ -94,7 +97,7 @@ class Admin
                 $stmt->bindParam(':lastName', $data['lastName']);
                 $stmt->bindParam(':dateOfBirth', $dateOfBirth);
                 $stmt->bindParam(':emailAddress', $data['emailAddress']);
-                $stmt->bindParam(':password', $data['password']);
+                $stmt->bindParam(':password', $hashedPassword);
                 $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
                 $stmt->bindParam(':updatedBy', $data['updatedBy']);
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
@@ -184,8 +187,8 @@ class Admin
                 ];
             }
             
-            // Verify password using plain text comparison (as requested by admin)
-            $passwordVerified = ($password === $admin['password']);
+            // Verify password using password_verify for hashed passwords
+            $passwordVerified = password_verify($password, $admin['password']);
             
             if ($passwordVerified) {
                 // Remove password from response for security
@@ -250,8 +253,8 @@ class Admin
                 ];
             }
 
-            // Store password in plain text (as requested by admin)
-            $plainPassword = $data['password'];
+            // Hash password for security
+            $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
 
             // Handle date_of_birth - provide default if null
             $dateOfBirth = $data['date_of_birth'] ?? null;
@@ -267,7 +270,7 @@ class Admin
                 'lastName' => $data['last_name'],
                 'dateOfBirth' => $dateOfBirth,
                 'emailAddress' => $data['email_address'],
-                'password' => $plainPassword,
+                'password' => $hashedPassword,
                 'phoneNumber' => $data['phone_number'] ?? null,
                 'createdBy' => $data['created_by'] ?? 'system',
                 'createdAt' => date('Y-m-d H:i:s'),

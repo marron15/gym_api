@@ -44,8 +44,8 @@ try {
         exit();
     }
     
-    // Check required fields
-    $requiredFields = ['first_name', 'last_name', 'email', 'password'];
+    // Check required fields (email is now optional)
+    $requiredFields = ['first_name', 'last_name', 'password'];
     $missingFields = [];
     
     foreach ($requiredFields as $field) {
@@ -63,8 +63,8 @@ try {
         exit();
     }
     
-    // Validate email format
-    if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
+    // Validate email format only if email is provided
+    if (!empty($input['email']) && !filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
@@ -114,7 +114,7 @@ try {
         'first_name' => trim($input['first_name']),
         'last_name' => trim($input['last_name']),
         'middle_name' => !empty($input['middle_name']) ? trim($input['middle_name']) : null,
-        'email' => strtolower(trim($input['email'])),
+        'email' => !empty($input['email']) ? strtolower(trim($input['email'])) : null,
         'password' => $input['password'],
         'birthdate' => !empty($input['birthdate']) ? $input['birthdate'] : null,
         'phone_number' => !empty($input['phone_number']) ? trim($input['phone_number']) : null,
