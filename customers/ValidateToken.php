@@ -93,7 +93,8 @@ try {
                     'address_details' => $withAddress['address_details'] ?? null,
                     'emergency_contact_name' => $customerData['emergency_contact_name'],
                     'emergency_contact_number' => $customerData['emergency_contact_number'],
-                    'img' => $customerData['img'],
+                    // Image is no longer required; avoid undefined index warnings
+                    'img' => $customerData['img'] ?? null,
                     'created_at' => $customerData['created_at'],
                     'expires_at' => $payload['exp'] ?? null
                 ]

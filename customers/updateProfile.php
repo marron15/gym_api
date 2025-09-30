@@ -36,42 +36,64 @@ try {
         exit();
     }
     
-    // Check required fields
-    if (empty($input['customer_id']) || empty($input['first_name']) || empty($input['last_name']) || empty($input['email'])) {
+    // Require only customer_id; allow partial updates for other fields
+    if (empty($input['customer_id'])) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'Customer ID, first name, last name, and email are required'
+            'message' => 'Customer ID is required'
         ]);
         exit();
     }
     
     $customerId = (int)$input['customer_id'];
     
-    // Validate email format
-    if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Invalid email format'
-        ]);
-        exit();
+    // If email provided, validate format
+    if (isset($input['email']) && strlen(trim($input['email'])) > 0) {
+        if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid email format'
+            ]);
+            exit();
+        }
     }
     
     // Prepare data for update
+    // Fetch current values to backfill
+    $customer = new Customer();
+    $currentRows = $customer->getById($customerId);
+    $current = ($currentRows && count($currentRows) > 0) ? $currentRows[0] : [];
+
+    function valOrNull($arr, $key) { return isset($arr[$key]) && strlen(trim($arr[$key])) > 0 ? trim($arr[$key]) : null; }
+
     $data = [
-        'firstName' => trim($input['first_name']),
-        'middleName' => isset($input['middle_name']) && !empty(trim($input['middle_name'])) ? trim($input['middle_name']) : null,
-        'lastName' => trim($input['last_name']),
-        'email' => strtolower(trim($input['email'])),
-        'birthdate' => isset($input['birthdate']) && !empty(trim($input['birthdate'])) ? trim($input['birthdate']) : null,
-        'phoneNumber' => isset($input['phone_number']) && !empty(trim($input['phone_number'])) ? trim($input['phone_number']) : null,
-        'emergencyContactName' => isset($input['emergency_contact_name']) && !empty(trim($input['emergency_contact_name'])) ? trim($input['emergency_contact_name']) : null,
-        'emergencyContactNumber' => isset($input['emergency_contact_number']) && !empty(trim($input['emergency_contact_number'])) ? trim($input['emergency_contact_number']) : null,
+        'firstName' => valOrNull($input, 'first_name') ?? ($current['first_name'] ?? null),
+        'middleName' => valOrNull($input, 'middle_name') ?? ($current['middle_name'] ?? null),
+        'lastName' => valOrNull($input, 'last_name') ?? ($current['last_name'] ?? null),
+        'email' => strtolower(valOrNull($input, 'email') ?? ($current['email'] ?? '')),
+        'birthdate' => valOrNull($input, 'birthdate') ?? ($current['birthdate'] ?? null),
+        'phoneNumber' => valOrNull($input, 'phone_number') ?? ($current['phone_number'] ?? null),
+        'emergencyContactName' => valOrNull($input, 'emergency_contact_name') ?? ($current['emergency_contact_name'] ?? null),
+        'emergencyContactNumber' => valOrNull($input, 'emergency_contact_number') ?? ($current['emergency_contact_number'] ?? null),
         'updatedBy' => 'customer_update',
         'updatedAt' => date('Y-m-d H:i:s'),
-        'img' => isset($input['img']) && !empty(trim($input['img'])) ? trim($input['img']) : null
+        'img' => valOrNull($input, 'img') ?? ($current['img'] ?? null),
+        'status' => $current['status'] ?? 'active'
     ];
+
+    // Enforce 11-digit phone number when provided
+    if ($data['phoneNumber'] !== null) {
+        if (!preg_match('/^\d{11}$/', $data['phoneNumber'])) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Contact number must be exactly 11 digits'
+            ]);
+            exit();
+        }
+    }
     
     // Handle password update if provided
     if (isset($input['password']) && !empty(trim($input['password']))) {
@@ -79,7 +101,6 @@ try {
     }
     
     // Create customer instance and attempt update
-    $customer = new Customer();
     $result = $customer->updateCustomersByID($customerId, $data);
     
     if ($result) {
