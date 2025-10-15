@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'POST
         $firstName = trim(($input['firstName'] ?? $input['first_name'] ?? '')) ?: null;
         $middleName = trim(($input['middleName'] ?? $input['middle_name'] ?? '')) ?: null;
         $lastName = trim(($input['lastName'] ?? $input['last_name'] ?? '')) ?: null;
-        $emailAddress = trim(($input['emailAddress'] ?? $input['email_address'] ?? '')) ?: null;
+        $email = trim(($input['email'] ?? $input['email_address'] ?? '')) ?: null;
         $phoneNumber = trim(($input['phoneNumber'] ?? $input['phone_number'] ?? '')) ?: null;
         $dateOfBirth = trim(($input['dateOfBirth'] ?? $input['date_of_birth'] ?? '')) ?: null;
         $password = $input['password'] ?? null;
@@ -58,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' || $_SERVER['REQUEST_METHOD'] === 'POST
             'lastName' => $lastName,
             'dateOfBirth' => $dateOfBirth,
             'phoneNumber' => $phoneNumber,
+            'email' => $email,
             'updatedBy' => $input['updatedBy'] ?? 'system',
             'updatedAt' => date('Y-m-d H:i:s'),
             'img' => $img

@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'dateOfBirth' => $input['date_of_birth'],
             'password' => $input['password'],
             'phoneNumber' => $input['phone_number'],
+            'email' => $input['email'] ?? ($input['email_address'] ?? null),
             'createdBy' => $input['created_by'] ?? 'system',
             'createdAt' => date('Y-m-d H:i:s'),
             'img' => $input['img'] ?? null

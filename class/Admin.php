@@ -81,6 +81,7 @@ class Admin
                         `date_of_birth` = :dateOfBirth,
                         `password` = :password,
                         `phone_number` = :phoneNumber,
+                        `email` = :email,
                         `updated_by` = :updatedBy,
                         `updated_at` = :updatedAt
                         WHERE id = :id";
@@ -95,6 +96,7 @@ class Admin
                 $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
                 $stmt->bindParam(':updatedBy', $data['updatedBy']);
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
+                $stmt->bindParam(':email', $data['email']);
             } else {
                 // Exclude password from update (for profile updates)
                 $sql = "UPDATE `admins` SET 
@@ -103,6 +105,7 @@ class Admin
                         `last_name` = :lastName,
                         `date_of_birth` = :dateOfBirth,
                         `phone_number` = :phoneNumber,
+                        `email` = :email,
                         `updated_by` = :updatedBy,
                         `updated_at` = :updatedAt
                         WHERE id = :id";
@@ -116,6 +119,7 @@ class Admin
                 $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
                 $stmt->bindParam(':updatedBy', $data['updatedBy']);
                 $stmt->bindParam(':updatedAt', $data['updatedAt']);
+                $stmt->bindParam(':email', $data['email']);
             }
             
             $executed = $stmt->execute();
@@ -138,6 +142,7 @@ class Admin
                     `date_of_birth` = :dateOfBirth,
                     `password` = :password,
                     `phone_number` = :phoneNumber,
+                    `email` = :email,
                     `created_by` = :createdBy,
                     `created_at` = :createdAt";
 
@@ -150,6 +155,7 @@ class Admin
         $stmt->bindParam(':phoneNumber', $data['phoneNumber']);
         $stmt->bindParam(':createdBy', $data['createdBy']);
         $stmt->bindParam(':createdAt', $data['createdAt']);
+        $stmt->bindParam(':email', $data['email']);
         $stmt->execute();
 
         if ($this->conn->lastInsertId()) {
@@ -247,6 +253,7 @@ class Admin
                 'dateOfBirth' => $dateOfBirth,
                 'password' => $hashedPassword,
                 'phoneNumber' => $data['phone_number'] ?? null,
+                'email' => $data['email'] ?? null,
                 'createdBy' => $data['created_by'] ?? 'system',
                 'createdAt' => date('Y-m-d H:i:s'),
             ];
