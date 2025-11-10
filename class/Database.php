@@ -1,10 +1,10 @@
 <?php
 class Database {
 	public $conn;
-	private $host = 'localhost';
-	private $username = 'root';
-	private $password = '';
-	private $db = 'db_sample';
+	private $host = 'localhost'; // Hostinger MySQL host (usually 'localhost')
+	private $username = 'u281361146_root'; // Your Hostinger MySQL username
+	private $password = ''; // TODO: Add your Hostinger MySQL password here
+	private $db = 'u281361146_gym'; // Your Hostinger database name
 
 	public function connection() {
 		try {
