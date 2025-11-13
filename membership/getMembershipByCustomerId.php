@@ -11,6 +11,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../class/Membership.php';
 
+if (!function_exists('logMembershipDebug')) {
+    function logMembershipDebug(string $message): void {
+        $logFile = __DIR__ . '/../membership_debug.log';
+        $timestamp = '[' . date('c') . '] ';
+        @file_put_contents($logFile, $timestamp . $message . PHP_EOL, FILE_APPEND);
+    }
+}
+
 try {
     $input = json_decode(file_get_contents('php://input'), true);
     
@@ -22,15 +30,18 @@ try {
         }
         
         $customerId = $input['customer_id'];
+        logMembershipDebug("Lookup membership for customer_id={$customerId}");
         $membership = new Membership();
         $result = $membership->getByCustomerId($customerId);
         
         if ($result) {
+            logMembershipDebug('Membership found: ' . json_encode($result));
             echo json_encode([
                 'success' => true,
                 'data' => $result
             ]);
         } else {
+            logMembershipDebug('No membership found for customer_id=' . $customerId);
             echo json_encode([
                 'success' => false,
                 'message' => 'No membership found for this customer'

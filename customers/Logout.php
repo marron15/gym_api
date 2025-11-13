@@ -22,16 +22,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 try {
     // Get JSON input
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    // Validate input
-    if (!$input) {
+    $rawInput = file_get_contents('php://input');
+    $input = json_decode($rawInput, true);
+
+    if (json_last_error() !== JSON_ERROR_NONE) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
             'message' => 'Invalid JSON input'
         ]);
         exit();
+    }
+
+    if (!is_array($input)) {
+        $input = [];
     }
     
     // Optional: Check if customer_id is provided for logging purposes

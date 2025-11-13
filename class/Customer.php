@@ -117,6 +117,15 @@ class Customer
         return $result;
     }
 
+    public function getByIdSingle($id)
+    {
+        $records = $this->getById($id);
+        if (empty($records)) {
+            return null;
+        }
+        return $records[0];
+    }
+
     public function deleteById($id)
     {
         $sql = "DELETE FROM `customers` WHERE id = :id";
