@@ -2,6 +2,7 @@
 require_once 'Database.php';
 require_once 'JWT.php';
 require_once 'CustomersAddress.php';
+require_once 'Membership.php';
 
 class Customer
 {
@@ -246,8 +247,16 @@ class Customer
         try {
             // Handle address update separately in customers_address table
             $addressUpdated = true;
+            $membershipUpdated = false;
             if (isset($data['address']) && !empty($data['address'])) {
                 $addressUpdated = $this->updateCustomerAddress($id, $data['address']);
+            }
+
+            if (isset($data['membershipType']) || isset($data['membership_type'])) {
+                $membershipType = $data['membershipType'] ?? $data['membership_type'];
+                $membershipStart = $data['membershipStartDate'] ?? $data['membership_start_date'] ?? null;
+                $membershipEnd = $data['membershipExpirationDate'] ?? $data['membership_expiration_date'] ?? null;
+                $membershipUpdated = $this->upsertCustomerMembership($id, $membershipType, $membershipStart, $membershipEnd);
             }
             
             // Check if password is included in the data
@@ -319,7 +328,7 @@ class Customer
             $stmt->execute();
 
             // Return true if either user update succeeded or both user and address updates succeeded
-            return ($stmt->rowCount() > 0) || $addressUpdated;
+            return ($stmt->rowCount() > 0) || $addressUpdated || (!empty($membershipUpdated));
             
         } catch (Exception $e) {
             error_log("Error updating customer: " . $e->getMessage());
@@ -603,7 +612,6 @@ class Customer
     public function storeCustomerAddress($customerId, $addressString)
     {
         try {
-            // Parse address string into components
             $addressComponents = $this->parseAddress($addressString);
             
             $customersAddress = new CustomersAddress();
@@ -614,11 +622,13 @@ class Customer
                 'state' => $addressComponents['state'],
                 'postalCode' => $addressComponents['postal_code'],
                 'country' => $addressComponents['country'],
-                'createdBy' => 'system',
+                'createdBy' => 0,
                 'createdAt' => date('Y-m-d H:i:s')
             ];
-            
-            return $customersAddress->store($addressData);
+
+            $result = $customersAddress->upsertByCustomerId($customerId, $addressData);
+
+            return $result !== false;
         } catch (Exception $e) {
             error_log("Error storing customer address: " . $e->getMessage());
             return false;
@@ -632,35 +642,108 @@ class Customer
     {
         try {
             $customersAddress = new CustomersAddress();
-                
-            // Check if address already exists for this user
-            $existingAddresses = $customersAddress->getByCustomerId($customerId);
-            
-            if (!empty($existingAddresses)) {
-                // Update existing address
-                $addressId = $existingAddresses[0]['id'];
-                $addressComponents = $this->parseAddress($addressString);
-                
-                $addressData = [
-                    'customerId' => $customerId,
-                    'street' => $addressComponents['street'],
-                    'city' => $addressComponents['city'],
-                    'state' => $addressComponents['state'],
-                    'postalCode' => $addressComponents['postal_code'],
-                    'country' => $addressComponents['country'],
-                    'updatedBy' => 'system',
-                    'updatedAt' => date('Y-m-d H:i:s')
-                ];
-                
-                return $customersAddress->updateCustomersAddressByID($addressId, $addressData);
-            } else {
-                // Create new address
-                return $this->storeCustomerAddress($customerId, $addressString);
-            }
+            $addressComponents = $this->parseAddress($addressString);
+
+            $addressData = [
+                'customerId' => $customerId,
+                'street' => $addressComponents['street'],
+                'city' => $addressComponents['city'],
+                'state' => $addressComponents['state'],
+                'postalCode' => $addressComponents['postal_code'],
+                'country' => $addressComponents['country'],
+                'updatedBy' => 0,
+                'updatedAt' => date('Y-m-d H:i:s')
+            ];
+
+            $result = $customersAddress->upsertByCustomerId($customerId, $addressData);
+
+            return $result !== false;
         } catch (Exception $e) {
             error_log("Error updating customer address: " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Insert or update a customer's membership record.
+     */
+    public function upsertCustomerMembership($customerId, $membershipType, $startDate = null, $expirationDate = null)
+    {
+        try {
+            $normalizedType = $this->normalizeMembershipType($membershipType);
+            if ($normalizedType === null) {
+                return false;
+            }
+
+            $start = $startDate ?: date('Y-m-d');
+            $end = $expirationDate ?: $this->calculateMembershipEndDate($start, $normalizedType);
+
+            $membership = new Membership();
+            $payload = [
+                'customerId' => $customerId,
+                'membershipType' => $normalizedType,
+                'startDate' => $start,
+                'expirationDate' => $end,
+                'status' => $normalizedType,
+                'createdBy' => 0,
+                'createdAt' => date('Y-m-d H:i:s', strtotime($start)),
+                'updatedBy' => 0,
+                'updatedAt' => date('Y-m-d H:i:s')
+            ];
+
+            $result = $membership->upsertByCustomerId($customerId, $payload);
+            return $result !== false;
+        } catch (Exception $e) {
+            error_log("Error updating customer membership: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function normalizeMembershipType($value)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $key = strtolower(trim($value));
+        $key = str_replace(' ', '', $key);
+
+        if ($key === 'daily') {
+            return 'Daily';
+        }
+
+        if ($key === 'halfmonth') {
+            return 'Half Month';
+        }
+
+        if ($key === 'monthly') {
+            return 'Monthly';
+        }
+
+        return null;
+    }
+
+    private function calculateMembershipEndDate($startDate, $membershipType)
+    {
+        $startTimestamp = strtotime($startDate);
+        if ($startTimestamp === false) {
+            $startTimestamp = time();
+        }
+
+        switch ($membershipType) {
+            case 'Daily':
+                $days = 1;
+                break;
+            case 'Half Month':
+                $days = 15;
+                break;
+            case 'Monthly':
+            default:
+                $days = 30;
+                break;
+        }
+
+        return date('Y-m-d', strtotime("+$days days", $startTimestamp));
     }
 
     /**

@@ -83,11 +83,7 @@ class CustomersAddress
         $stmt->bindParam(':updatedAt', $data['updatedAt']);
         $stmt->execute();
 
-        if ($stmt->rowCount() > 0) {
-            return true;
-        }
-
-        return false;
+        return $stmt->rowCount() >= 0;
     }
 
     public function store($data)
@@ -118,6 +114,44 @@ class CustomersAddress
         }
 
         return false;       
+    }
+
+    /**
+     * Insert or update address for a customer_id
+     */
+    public function upsertByCustomerId($customerId, $data)
+    {
+        $existingAddresses = $this->getByCustomerId($customerId);
+        $now = date('Y-m-d H:i:s');
+
+        if (!empty($existingAddresses)) {
+            $data['updatedBy'] = (int)($data['updatedBy'] ?? $data['createdBy'] ?? 0);
+            $data['updatedAt'] = $data['updatedAt'] ?? $now;
+
+            $addressId = (int)$existingAddresses[0]['id'];
+            $updated = $this->updateCustomersAddressByID($addressId, $data);
+
+            if ($updated) {
+                return [
+                    'address_id' => $addressId,
+                    'operation' => 'updated'
+                ];
+            }
+
+            return false;
+        }
+
+        $data['createdBy'] = (int)($data['createdBy'] ?? 0);
+        $data['createdAt'] = $data['createdAt'] ?? $now;
+
+        if ($this->store($data)) {
+            return [
+                'address_id' => (int)$this->conn->lastInsertId(),
+                'operation' => 'inserted'
+            ];
+        }
+
+        return false;
     }
 
     public function getByCustomerId($customerId)

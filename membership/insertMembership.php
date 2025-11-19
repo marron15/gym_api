@@ -15,16 +15,59 @@ require_once '../class/Membership.php';
 
 $membership = new Membership();
 
-// PHP receives form-encoded fields from Flutter
-$customerId = $_POST['customerId'] ?? "";
-$membershipType = $_POST['membershipType'] ?? "";
-$startDate = $_POST['startDate'] ?? "";
-$expirationDate = $_POST['expirationDate'] ?? "";
-$status = $_POST['status'] ?? "";
-$createdBy = $_POST['createdBy'] ?? 1;
+function normalize_membership_label($value) {
+    $key = strtolower(trim($value));
+    $key = str_replace(' ', '', $key);
+
+    if ($key === 'daily') {
+        return 'Daily';
+    }
+
+    if ($key === 'halfmonth') {
+        return 'Half Month';
+    }
+
+    if ($key === 'monthly') {
+        return 'Monthly';
+    }
+
+    return null;
+}
+
+$customerId = isset($_POST['customerId']) ? (int)$_POST['customerId'] : 0;
+$rawMembershipType = $_POST['membershipType'] ?? '';
+$membershipType = normalize_membership_label($rawMembershipType);
+$startDate = $_POST['startDate'] ?? date('Y-m-d');
+$expirationDate = $_POST['expirationDate'] ?? '';
+$status = $_POST['status'] ?? $membershipType;
+$createdBy = isset($_POST['createdBy']) ? (int)$_POST['createdBy'] : 0;
 $createdAt = $_POST['createdAt'] ?? date('Y-m-d H:i:s');
 $updatedAt = $_POST['updatedAt'] ?? date('Y-m-d H:i:s');
-$updatedBy = $_POST['updatedBy'] ?? 1;
+$updatedBy = isset($_POST['updatedBy']) ? (int)$_POST['updatedBy'] : 0;
+
+if ($customerId <= 0 || $membershipType === null) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'customerId and membershipType are required'
+    ]);
+    exit();
+}
+
+if (empty($expirationDate)) {
+    switch ($membershipType) {
+        case 'Daily':
+            $days = 1;
+            break;
+        case 'Half Month':
+            $days = 15;
+            break;
+        case 'Monthly':
+        default:
+            $days = 30;
+            break;
+    }
+    $expirationDate = date('Y-m-d', strtotime("+$days days", strtotime($startDate)));
+}
 
 $data = [
     'customerId' => $customerId,
@@ -38,7 +81,17 @@ $data = [
     'updatedBy' => $updatedBy,
 ];
 
-$result = $membership->store($data);
+$result = $membership->upsertByCustomerId($customerId, $data);
 
-echo json_encode(['success' => (bool)$result]);
+if ($result !== false) {
+    echo json_encode([
+        'success' => true,
+        'data' => $result
+    ]);
+} else {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Failed to save membership'
+    ]);
+}
 ?>

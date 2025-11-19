@@ -212,31 +212,17 @@ try {
     $signupResult = $customer->signup($customerData);
     
     if ($signupResult['success']) {
-        // Create membership if requested AND Membership class is available
+        // Create membership if requested
         $membershipCreated = false;
-        if (isset($input['membership_type']) && isset($input['expiration_date']) && class_exists('Membership')) {
-            try {
-                $membership = new Membership();
-                $membershipResult = $membership->createMembership(
-                    $signupResult['customer']['id'],
-                    $input['membership_type'],
-                    $input['expiration_date'],
-                    $input['created_by'] ?? 'admin',
-                    $input['services'] ?? null,
-                    $input['price'] ?? null,
-                    $input['membership_description'] ?? null,
-                    $input['payment_method'] ?? null,
-                    $input['payment_amount_total'] ?? null,
-                    $input['pay_amount_paid'] ?? null,
-                    $input['reference_number'] ?? null,
-                    $input['pay_reference_image'] ?? null
-                );
-                $membershipCreated = !empty($membershipResult['success']);
-            } catch (Throwable $t) {
-                // Do not fail signup if membership creation fails; report flag only
-                error_log('Membership creation failed: ' . $t->getMessage());
-                $membershipCreated = false;
-            }
+        if (!empty($input['membership_type'])) {
+            $membershipStart = $input['membership_start_date'] ?? $input['start_date'] ?? date('Y-m-d');
+            $membershipEnd = $input['expiration_date'] ?? null;
+            $membershipCreated = $customer->upsertCustomerMembership(
+                $signupResult['customer']['id'],
+                $input['membership_type'],
+                $membershipStart,
+                $membershipEnd
+            );
         }
         
         http_response_code(201); // Created

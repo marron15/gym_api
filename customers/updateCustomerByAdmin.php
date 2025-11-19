@@ -168,6 +168,16 @@ try {
         'updatedAt' => date('Y-m-d H:i:s'),
         'img' => isset($input['img']) && !empty(trim($input['img'])) ? trim($input['img']) : null
     ];
+
+    if (!empty($input['membership_type']) || !empty($input['membershipType'])) {
+        $data['membershipType'] = $input['membership_type'] ?? $input['membershipType'];
+        if (!empty($input['membership_start_date']) || !empty($input['membershipStartDate'])) {
+            $data['membershipStartDate'] = $input['membership_start_date'] ?? $input['membershipStartDate'];
+        }
+        if (!empty($input['membership_expiration_date']) || !empty($input['membershipExpirationDate'])) {
+            $data['membershipExpirationDate'] = $input['membership_expiration_date'] ?? $input['membershipExpirationDate'];
+        }
+    }
     
     // Handle password update if provided
     if (isset($input['password']) && !empty(trim($input['password']))) {

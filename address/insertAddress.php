@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 try {
     $address = new CustomersAddress();
 
-    $customerId = $_POST['customer_id'] ?? 0;
+    $customerId = (int)($_POST['customer_id'] ?? 0);
     $street = $_POST['street'] ?? "";
     $city = $_POST['city'] ?? "";
     $state = $_POST['state'] ?? "";
@@ -36,6 +36,15 @@ try {
     $createdAt = date('Y-m-d H:i:s');
     $updatedBy = 1;
     $updatedAt = date('Y-m-d H:i:s');
+
+    if ($customerId <= 0) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'customer_id is required'
+        ]);
+        exit();
+    }
 
     $data = [
         'customerId' => $customerId,
@@ -51,16 +60,19 @@ try {
         'updatedAt' => $updatedAt,
     ];
 
-    $result = $address->store($data);
+    $result = $address->upsertByCustomerId($customerId, $data);
 
     if ($result) {
         http_response_code(200);
         echo json_encode([
             'success' => true,
-            'message' => 'Address inserted successfully',
+            'message' => $result['operation'] === 'inserted'
+                ? 'Address inserted successfully'
+                : 'Address updated successfully',
             'data' => [
                 'customer_id' => $customerId,
-                'address_id' => $address->conn->lastInsertId()
+                'address_id' => $result['address_id'],
+                'operation' => $result['operation']
             ]
         ]);
     } else {
