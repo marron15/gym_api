@@ -20,6 +20,8 @@ $name = $_POST['name'] ?? ($json['name'] ?? '');
 $description = $_POST['description'] ?? ($json['description'] ?? '');
 $status = 1; // active by default
 $img = $_POST['img'] ?? ($json['img'] ?? '');
+$quantity = (int)($_POST['quantity'] ?? ($json['quantity'] ?? 0));
+$quantity = max(0, $quantity);
 $createdBy = 1;
 $createdAt = date('Y-m-d H:i:s');
 
@@ -60,6 +62,7 @@ $data = [
     'name' => $name,
     'description' => $description,
     'status' => $status,
+    'quantity' => $quantity,
     'img' => $img,
     'createdBy' => $createdBy,
     'createdAt' => $createdAt,

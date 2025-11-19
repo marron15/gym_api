@@ -69,11 +69,13 @@ class Products
     {
         $updatedByCol = $this->updatedByColumn();
         $hasStatus = $this->hasColumn('status');
+        $hasQuantity = $this->hasColumn('quantity');
 
         $sql = "UPDATE `products` SET 
                 `name` = :name,
                 `description` = :description,
                 " . ($hasStatus ? "`status` = :status,\n                " : "") .
+                ($hasQuantity ? "`quantity` = :quantity,\n                " : "") .
                 "`img` = :img,
                 " . ($updatedByCol ? "`$updatedByCol` = :updatedBy,\n                " : "") .
                 "`updated_at` = :updatedAt
@@ -85,6 +87,9 @@ class Products
         $stmt->bindParam(':description', $data['description']);
         if ($hasStatus) {
             $stmt->bindParam(':status', $data['status']);
+        }
+        if ($hasQuantity) {
+            $stmt->bindParam(':quantity', $data['quantity'], PDO::PARAM_INT);
         }
         $stmt->bindParam(':img', $data['img']);
         if ($updatedByCol) {
@@ -104,11 +109,13 @@ class Products
     {
         $hasStatus = $this->hasColumn('status');
         $hasCreatedBy = $this->hasColumn('created_by');
+        $hasQuantity = $this->hasColumn('quantity');
 
         $sql = "INSERT INTO `products`
                 SET `name` = :name,
                     `description` = :description,
                     " . ($hasStatus ? "`status` = :status,\n                    " : "") .
+                    ($hasQuantity ? "`quantity` = :quantity,\n                    " : "") .
                     "`img` = :img,
                     " . ($hasCreatedBy ? "`created_by` = :createdBy,\n                    " : "") .
                     "`created_at` = :createdAt";
@@ -118,6 +125,9 @@ class Products
         $stmt->bindParam(':description', $data['description']);
         if ($hasStatus) {
             $stmt->bindParam(':status', $data['status']);
+        }
+        if ($hasQuantity) {
+            $stmt->bindParam(':quantity', $data['quantity'], PDO::PARAM_INT);
         }
         $stmt->bindParam(':img', $data['img']);
         if ($hasCreatedBy) {

@@ -17,10 +17,13 @@ $input = file_get_contents('php://input');
 $json = json_decode($input, true);
 
 $id = (int)($_POST['id'] ?? ($json['id'] ?? 0));
+$quantity = (int)($_POST['quantity'] ?? ($json['quantity'] ?? 0));
+$quantity = max(0, $quantity);
 $data = [
   'name' => $_POST['name'] ?? ($json['name'] ?? ''),
   'description' => $_POST['description'] ?? ($json['description'] ?? ''),
   'status' => $_POST['status'] ?? ($json['status'] ?? 1),
+  'quantity' => $quantity,
   'img' => $_POST['img'] ?? ($json['img'] ?? ''),
   'updatedBy' => 1,
   'updatedAt' => date('Y-m-d H:i:s'),
