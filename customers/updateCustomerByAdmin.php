@@ -23,6 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
+    $customerModel = new Customer();
+
     // Get JSON input
     $input = json_decode(file_get_contents('php://input'), true);
     
@@ -36,15 +38,43 @@ try {
         exit();
     }
     
-    // Check required fields
-    if (empty($input['id']) || empty($input['first_name']) || empty($input['last_name']) || empty($input['email'])) {
+    $rawId = isset($input['id']) ? trim((string)$input['id']) : '';
+    if ($rawId === '' || !is_numeric($rawId)) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'ID, first name, last name, and email are required'
+            'message' => 'Customer ID is required'
         ]);
         exit();
     }
+    
+    $id = (int)$rawId;
+    $existingCustomer = $customerModel->getByIdSingle($id);
+    if (!$existingCustomer) {
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Customer not found'
+        ]);
+        exit();
+    }
+    
+    $firstName = trim($input['first_name'] ?? '');
+    if ($firstName === '') {
+        $firstName = trim($existingCustomer['first_name'] ?? '');
+    }
+    $lastName = trim($input['last_name'] ?? '');
+    if ($lastName === '') {
+        $lastName = trim($existingCustomer['last_name'] ?? '');
+    }
+    $email = trim($input['email'] ?? '');
+    if ($email === '') {
+        $email = trim($existingCustomer['email'] ?? '');
+    }
+    
+    $input['first_name'] = $firstName;
+    $input['last_name'] = $lastName;
+    $input['email'] = $email;
     
     // Validate Philippine mobile number format if provided
     if (!empty($input['phone_number'])) {
@@ -142,10 +172,8 @@ try {
         $input['emergency_contact_number'] = $cleanEmergencyPhone;
     }
     
-    $id = (int)$input['id'];
-    
     // Validate email format
-    if (!filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
+    if ($input['email'] !== '' && !filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
@@ -159,14 +187,17 @@ try {
         'firstName' => trim($input['first_name']),
         'middleName' => isset($input['middle_name']) && !empty(trim($input['middle_name'])) ? trim($input['middle_name']) : null,
         'lastName' => trim($input['last_name']),
-        'email' => strtolower(trim($input['email'])),
+        'email' => $input['email'] === '' ? null : strtolower(trim($input['email'])),
         'birthdate' => isset($input['birthdate']) && !empty(trim($input['birthdate'])) ? trim($input['birthdate']) : null,
         'phoneNumber' => isset($input['phone_number']) && !empty(trim($input['phone_number'])) ? trim($input['phone_number']) : null,
         'emergencyContactName' => isset($input['emergency_contact_name']) && !empty(trim($input['emergency_contact_name'])) ? trim($input['emergency_contact_name']) : null,
         'emergencyContactNumber' => isset($input['emergency_contact_number']) && !empty(trim($input['emergency_contact_number'])) ? trim($input['emergency_contact_number']) : null,
         'updatedBy' => 'admin_update',
         'updatedAt' => date('Y-m-d H:i:s'),
-        'img' => isset($input['img']) && !empty(trim($input['img'])) ? trim($input['img']) : null
+        'img' => isset($input['img']) && !empty(trim($input['img'])) ? trim($input['img']) : null,
+        'status' => isset($input['status']) && $input['status'] !== ''
+            ? $input['status']
+            : ($existingCustomer['status'] ?? 'active')
     ];
 
     if (!empty($input['membership_type']) || !empty($input['membershipType'])) {
@@ -185,8 +216,7 @@ try {
     }
     
     // Create customer instance and attempt update
-    $customer = new Customer();
-    $result = $customer->updateCustomersByID($id, $data);
+    $result = $customerModel->updateCustomersByID($id, $data);
     
     if ($result) {
         // Also update address if provided
@@ -200,7 +230,7 @@ try {
                 $input['address_details']['postal_code'] ?? '',
                 $input['address_details']['country'] ?? ''
             ]));
-            $addressUpdated = $customer->updateCustomerAddress($id, $addressString);
+            $addressUpdated = $customerModel->updateCustomerAddress($id, $addressString);
         }
         
         http_response_code(200);
