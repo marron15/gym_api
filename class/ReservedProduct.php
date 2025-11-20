@@ -123,7 +123,50 @@ class ReservedProduct
         }
     }
 
-    public function updateStatus($reservationId, $status)
+    public function getReservationsByCustomer($customerId, $status = null)
+    {
+        try {
+            $this->ensureConnection();
+            $params = [':customerId' => $customerId];
+            $where = 'WHERE rp.customer_id = :customerId';
+            
+            if ($status !== null && $status !== '') {
+                $where .= ' AND rp.status = :status';
+                $params[':status'] = strtolower($status);
+            }
+
+            $sql = "
+                SELECT
+                    rp.*,
+                    p.name AS product_name,
+                    p.description AS product_description,
+                    c.first_name,
+                    c.last_name,
+                    c.email
+                FROM `reserved_products` rp
+                LEFT JOIN `products` p ON p.id = rp.product_id
+                LEFT JOIN `customers` c ON c.id = rp.customer_id
+                $where
+                ORDER BY rp.created_at DESC";
+
+            $stmt = $this->conn->prepare($sql);
+            $stmt->execute($params);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'success' => true,
+                'data' => $results
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => []
+            ];
+        }
+    }
+
+    public function updateStatus($reservationId, $status, $declineNote = null)
     {
         $allowedStatuses = ['pending', 'accepted', 'declined', 'cancelled'];
         $status = strtolower($status);
@@ -200,17 +243,25 @@ class ReservedProduct
                 ]);
             }
 
-            $update = $this->conn->prepare(
-                'UPDATE `reserved_products`
-                 SET `status` = :status,
-                     `updated_at` = :updatedAt
-                 WHERE `id` = :id'
-            );
-            $update->execute([
+            // Build update query with optional decline_note
+            $updateFields = '`status` = :status, `updated_at` = :updatedAt';
+            $updateParams = [
                 ':status' => $status,
                 ':updatedAt' => $now,
                 ':id' => $reservationId,
-            ]);
+            ];
+
+            if ($declineNote !== null && $declineNote !== '') {
+                $updateFields .= ', `decline_note` = :declineNote';
+                $updateParams[':declineNote'] = $declineNote;
+            }
+
+            $update = $this->conn->prepare(
+                "UPDATE `reserved_products`
+                 SET $updateFields
+                 WHERE `id` = :id"
+            );
+            $update->execute($updateParams);
 
             $this->conn->commit();
             return ['success' => true];

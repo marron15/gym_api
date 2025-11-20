@@ -19,6 +19,7 @@ $json = json_decode($input, true);
 
 $reservationId = $_POST['reservation_id'] ?? ($json['reservation_id'] ?? null);
 $status = $_POST['status'] ?? ($json['status'] ?? null);
+$declineNote = $_POST['decline_note'] ?? ($json['decline_note'] ?? null);
 
 if ($reservationId === null || $status === null) {
     http_response_code(400);
@@ -26,7 +27,7 @@ if ($reservationId === null || $status === null) {
     exit;
 }
 
-$result = $reservedProduct->updateStatus((int) $reservationId, $status);
+$result = $reservedProduct->updateStatus((int) $reservationId, $status, $declineNote);
 
 if ($result['success'] ?? false) {
     echo json_encode($result);
