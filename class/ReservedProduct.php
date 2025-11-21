@@ -243,7 +243,7 @@ class ReservedProduct
                 ]);
             }
 
-            // Build update query with optional decline_note
+            // Build update query with optional declined_note
             $updateFields = '`status` = :status, `updated_at` = :updatedAt';
             $updateParams = [
                 ':status' => $status,
@@ -252,8 +252,11 @@ class ReservedProduct
             ];
 
             if ($declineNote !== null && $declineNote !== '') {
-                $updateFields .= ', `decline_note` = :declineNote';
+                $updateFields .= ', `declined_note` = :declineNote';
                 $updateParams[':declineNote'] = $declineNote;
+            } elseif ($status !== 'declined') {
+                // Clear previous decline notes if status is changing away from declined
+                $updateFields .= ', `declined_note` = NULL';
             }
 
             $update = $this->conn->prepare(
