@@ -5,6 +5,7 @@ require_once 'Database.php';
 class ReservedProduct
 {
     private $conn;
+    private $hasDeclinedNoteColumnCache = null;
 
     public function __construct()
     {
@@ -17,6 +18,22 @@ class ReservedProduct
         if (!$this->conn) {
             throw new Exception('Database connection unavailable.');
         }
+    }
+
+    private function hasDeclinedNoteColumn(): bool
+    {
+        if ($this->hasDeclinedNoteColumnCache !== null) {
+            return $this->hasDeclinedNoteColumnCache;
+        }
+        try {
+            $this->ensureConnection();
+            $stmt = $this->conn->prepare("SHOW COLUMNS FROM `reserved_products` LIKE 'declined_note'");
+            $stmt->execute();
+            $this->hasDeclinedNoteColumnCache = (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            $this->hasDeclinedNoteColumnCache = false;
+        }
+        return $this->hasDeclinedNoteColumnCache;
     }
 
     public function createReservation($customerId, $productId, $quantity, $notes = '')
@@ -251,10 +268,12 @@ class ReservedProduct
                 ':id' => $reservationId,
             ];
 
-            if ($declineNote !== null && $declineNote !== '') {
+            $supportsDeclineNote = $this->hasDeclinedNoteColumn();
+
+            if ($supportsDeclineNote && $declineNote !== null && $declineNote !== '') {
                 $updateFields .= ', `declined_note` = :declineNote';
                 $updateParams[':declineNote'] = $declineNote;
-            } elseif ($status !== 'declined') {
+            } elseif ($supportsDeclineNote && $status !== 'declined') {
                 // Clear previous decline notes if status is changing away from declined
                 $updateFields .= ', `declined_note` = NULL';
             }
@@ -267,7 +286,11 @@ class ReservedProduct
             $update->execute($updateParams);
 
             $this->conn->commit();
-            return ['success' => true];
+            $response = ['success' => true];
+            if (!$supportsDeclineNote && $declineNote !== null && $declineNote !== '') {
+                $response['message'] = 'Decline note not stored (column missing).';
+            }
+            return $response;
         } catch (Exception $e) {
             if ($this->conn && $this->conn->inTransaction()) {
                 $this->conn->rollBack();
