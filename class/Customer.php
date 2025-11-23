@@ -515,8 +515,18 @@ class Customer
                 }
             }
 
-            // Hash password for security
-            $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
+            if (empty($data['password'])) {
+                return [
+                    'success' => false,
+                    'message' => 'Password is required',
+                ];
+            }
+
+            $passwordSource = $data['password'];
+            $isPasswordHashed = !empty($data['password_is_hashed']);
+            $hashedPassword = $isPasswordHashed
+                ? $passwordSource
+                : password_hash($passwordSource, PASSWORD_DEFAULT);
 
             // Prepare data for insertion (excluding address - will be stored separately)
             $insertData = [

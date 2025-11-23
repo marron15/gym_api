@@ -49,8 +49,39 @@ try {
     }
     echo "\n";
     
+    // Ensure pending verification table exists
+    echo "2. Checking pending_customer_verifications table...\n";
+    $stmt = $conn->query("SHOW TABLES LIKE 'pending_customer_verifications'");
+    $pendingTableExists = $stmt->rowCount() > 0;
+
+    if ($pendingTableExists) {
+        echo "   ✅ pending_customer_verifications table exists\n";
+    } else {
+        echo "   ❌ pending_customer_verifications table does not exist\n";
+        echo "   Creating table...\n";
+
+        $createPendingTableSQL = "
+        CREATE TABLE `pending_customer_verifications` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `email` varchar(255) NOT NULL,
+            `code_hash` varchar(255) NOT NULL,
+            `payload_json` longtext NOT NULL,
+            `expires_at` datetime NOT NULL,
+            `attempts` int(11) NOT NULL DEFAULT 0,
+            `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `unique_email_verification` (`email`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ";
+
+        $conn->exec($createPendingTableSQL);
+        echo "   ✅ pending_customer_verifications table created successfully\n";
+    }
+    echo "\n";
+
     // Check table structure
-    echo "2. Checking table structure...\n";
+    echo "3. Checking table structure...\n";
     $stmt = $conn->query("DESCRIBE customer_address");
     $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
@@ -63,7 +94,7 @@ try {
     echo "\n";
     
     // Check if customers table exists and has required fields
-    echo "3. Checking customers table...\n";
+    echo "4. Checking customers table...\n";
     $stmt = $conn->query("SHOW TABLES LIKE 'customers'");
     $customersTableExists = $stmt->rowCount() > 0;
     
@@ -85,7 +116,7 @@ try {
     echo "\n";
     
     // Check sample data
-    echo "4. Checking sample data...\n";
+    echo "5. Checking sample data...\n";
     $stmt = $conn->query("SELECT COUNT(*) as count FROM customers");
     $customerCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
     echo "   Total customers: $customerCount\n";

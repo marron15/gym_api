@@ -41,31 +41,30 @@ try {
     }
     
     // Check required fields
-    if (empty($input['contact_number']) || empty($input['password'])) {
+    if (empty($input['email']) || empty($input['password'])) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'Contact number and password are required'
+            'message' => 'Email and password are required'
         ]);
         exit();
     }
     
-    $contact = trim($input['contact_number']);
+    $email = strtolower(trim($input['email']));
     $password = $input['password'];
     
-    // Validate contact number format (10-11 digits)
-    if (!preg_match('/^\d{10,11}$/', $contact)) {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'Invalid contact number format'
+            'message' => 'Invalid email format'
         ]);
         exit();
     }
     
     // Create customer instance and attempt login
     $customer = new Customer();
-    $loginResult = $customer->loginByContact($contact, $password);
+    $loginResult = $customer->login($email, $password);
     
     if ($loginResult['success']) {
         // Enrich with address information
