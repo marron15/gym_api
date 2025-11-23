@@ -165,21 +165,21 @@ class Admin
         return false;       
     }
 
-    public function login($phoneNumber, $password)
+    public function login($email, $password)
     {
         try {
-            // Get admin by contact number
-            $sql = "SELECT * FROM `admins` WHERE `phone_number` = :phone LIMIT 1";
+            // Get admin by email
+            $sql = "SELECT * FROM `admins` WHERE `email` = :email LIMIT 1";
             $stmt = $this->conn->prepare($sql);
-            $stmt->bindParam(':phone', $phoneNumber);
+            $stmt->bindParam(':email', $email);
             $stmt->execute();
             $admin = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$admin) {
                 return [
                     'success' => false,
-                    'message' => 'Wrong Contact Number',
-                    'field' => 'phone'
+                    'message' => 'Wrong Email Address',
+                    'field' => 'email'
                 ];
             }
             
