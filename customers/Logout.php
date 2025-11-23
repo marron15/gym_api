@@ -90,12 +90,13 @@ try {
     // For token-based authentication, you might invalidate tokens here
     // (requires a token blacklist or similar mechanism)
     
+    $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
     http_response_code(200);
     echo json_encode([
         'success' => true,
         'message' => 'Logout successful',
         'data' => [
-            'logged_out_at' => date('Y-m-d H:i:s'),
+            'logged_out_at' => $now->format('Y-m-d H:i:s'),
             'customer_id' => $customerId
         ]
     ]);

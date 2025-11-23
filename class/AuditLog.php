@@ -18,7 +18,7 @@ class AuditLog
 
     public static function currentTimestamp(): string
     {
-        $dt = new DateTime('now');
+        $dt = new DateTime('now', new DateTimeZone('Asia/Manila'));
         return $dt->format('Y-m-d H:i:s');
     }
 
