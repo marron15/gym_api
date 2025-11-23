@@ -5,6 +5,7 @@ header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
 require_once '../class/Customer.php';
+require_once '../class/AuditLog.php';
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -221,6 +222,7 @@ try {
     if ($result) {
         // Also update address if provided
         $addressUpdated = true;
+        $addressStringForLogging = null;
         if (isset($input['address_details']) && is_array($input['address_details'])) {
             // Convert address array to string format for the updateCustomerAddress method
             $addressString = implode(', ', array_filter([
@@ -230,7 +232,107 @@ try {
                 $input['address_details']['postal_code'] ?? '',
                 $input['address_details']['country'] ?? ''
             ]));
+            $addressStringForLogging = $addressString;
             $addressUpdated = $customerModel->updateCustomerAddress($id, $addressString);
+        }
+
+        if (!function_exists('normalizeAuditValueAdmin')) {
+            function normalizeAuditValueAdmin($value) {
+                if ($value === null) {
+                    return null;
+                }
+
+                if (is_string($value)) {
+                    $trimmed = trim($value);
+                    return $trimmed === '' ? null : $trimmed;
+                }
+
+                return $value;
+            }
+
+            function addAdminAuditChange(array &$changes, string $field, $old, $new): void {
+                $oldValue = normalizeAuditValueAdmin($old);
+                $newValue = normalizeAuditValueAdmin($new);
+
+                if ($oldValue !== $newValue) {
+                    $changes[$field] = [
+                        'old' => $oldValue,
+                        'new' => $newValue,
+                    ];
+                }
+            }
+        }
+
+        $changes = [];
+        addAdminAuditChange($changes, 'first_name', $existingCustomer['first_name'] ?? null, $data['firstName']);
+        addAdminAuditChange($changes, 'middle_name', $existingCustomer['middle_name'] ?? null, $data['middleName']);
+        addAdminAuditChange($changes, 'last_name', $existingCustomer['last_name'] ?? null, $data['lastName']);
+        addAdminAuditChange($changes, 'email', $existingCustomer['email'] ?? null, $data['email']);
+        addAdminAuditChange($changes, 'birthdate', $existingCustomer['birthdate'] ?? null, $data['birthdate']);
+        addAdminAuditChange($changes, 'phone_number', $existingCustomer['phone_number'] ?? null, $data['phoneNumber']);
+        addAdminAuditChange(
+            $changes,
+            'emergency_contact_name',
+            $existingCustomer['emergency_contact_name'] ?? null,
+            $data['emergencyContactName']
+        );
+        addAdminAuditChange(
+            $changes,
+            'emergency_contact_number',
+            $existingCustomer['emergency_contact_number'] ?? null,
+            $data['emergencyContactNumber']
+        );
+
+        if ($addressStringForLogging !== null) {
+            $changes['address'] = [
+                'old' => $existingCustomer['address'] ?? null,
+                'new' => $addressStringForLogging,
+            ];
+        }
+
+        $adminId = isset($input['admin_id']) ? (int)$input['admin_id'] : null;
+        $adminName = trim($input['admin_name'] ?? '');
+
+        if (!empty($changes)) {
+            $sections = [];
+            $personalFields = ['first_name', 'middle_name', 'last_name', 'email', 'birthdate', 'phone_number'];
+            $emergencyFields = ['emergency_contact_name', 'emergency_contact_number'];
+
+            if (count(array_intersect(array_keys($changes), $personalFields)) > 0) {
+                $sections[] = 'personal_information';
+            }
+            if (count(array_intersect(array_keys($changes), $emergencyFields)) > 0) {
+                $sections[] = 'emergency_contact';
+            }
+            if (isset($changes['address'])) {
+                $sections[] = 'address';
+            }
+
+            $customerName = trim(($existingCustomer['first_name'] ?? '') . ' ' . ($existingCustomer['last_name'] ?? ''));
+            try {
+                $auditLog = new AuditLog();
+                $auditLog->record([
+                    'customer_id' => $id,
+                    'customer_name' => $customerName ?: null,
+                    'admin_id' => $adminId,
+                    'actor_type' => 'admin',
+                    'actor_name' => $adminName ?: null,
+                    'activity_category' => 'profile',
+                    'activity_type' => 'profile_update_admin',
+                    'activity_title' => 'Admin updated customer profile',
+                    'description' => $sections
+                        ? (($adminName ?: 'An admin') . ' updated ' . implode(', ', str_replace('_', ' ', $sections)))
+                        : (($adminName ?: 'An admin') . ' updated the customer profile'),
+                    'metadata' => [
+                        'sections' => $sections,
+                        'changes' => $changes,
+                        'initiated_by' => 'admin',
+                        'admin_id' => $adminId,
+                    ],
+                ]);
+            } catch (Exception $e) {
+                error_log('Audit log admin update error: ' . $e->getMessage());
+            }
         }
         
         http_response_code(200);

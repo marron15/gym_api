@@ -26,6 +26,7 @@ class Attendance
                     cal.status,
                     cal.verified_by_admin_id,
                     cal.verified_by_name,
+                    cal.platform,
                     cal.created_at,
                     cal.updated_at,
                     COALESCE(a.first_name, '') AS admin_first_name,
@@ -75,6 +76,7 @@ class Attendance
                     cal.status,
                     cal.verified_by_admin_id,
                     cal.verified_by_name,
+                    cal.platform,
                     cal.created_at,
                     cal.updated_at,
                     COALESCE(a.first_name, '') AS admin_first_name,
@@ -196,6 +198,7 @@ class Attendance
             'status' => strtoupper($row['status'] ?? ($row['time_out'] ? 'OUT' : 'IN')),
             'verified_by' => $adminName,
             'verified_by_admin_id' => $row['verified_by_admin_id'],
+            'platform' => $row['platform'] ?? null,
         ];
     }
 
@@ -203,6 +206,8 @@ class Attendance
     {
         $adminName = $row['verified_by_name'] ?? trim(($row['admin_first_name'] ?? '') . ' ' . ($row['admin_last_name'] ?? ''));
         $status = strtoupper($row['status'] ?? ($row['time_out'] ? 'OUT' : 'IN'));
+
+        $customerName = trim(($row['customer_first_name'] ?? '') . ' ' . ($row['customer_last_name'] ?? ''));
 
         return [
             'attendance_id' => (int)$row['id'],
@@ -213,6 +218,8 @@ class Attendance
             'last_time_out' => $row['time_out'],
             'verified_by' => $adminName,
             'verified_by_admin_id' => $row['verified_by_admin_id'],
+            'customer_name' => $customerName ?: null,
+            'platform' => $row['platform'] ?? null,
         ];
     }
 

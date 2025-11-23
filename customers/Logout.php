@@ -4,6 +4,9 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
+require_once '../class/AuditLog.php';
+require_once '../class/Customer.php';
+
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -46,10 +49,38 @@ try {
     // This endpoint mainly serves to acknowledge the logout request
     // and can be used for logging/analytics purposes
     
-    // Optional: You could add logging here for security/audit purposes
     if ($customerId) {
-        // Log the logout event (optional)
-        error_log("Customer logout: Customer ID {$customerId} logged out at " . date('Y-m-d H:i:s'));
+        $customerName = null;
+        try {
+            $customerModel = new Customer();
+            $customerData = $customerModel->getByIdSingle((int)$customerId);
+            if ($customerData) {
+                $customerName = trim(($customerData['first_name'] ?? '') . ' ' . ($customerData['last_name'] ?? ''));
+            }
+        } catch (Exception $e) {
+            error_log('Customer lookup for logout audit failed: ' . $e->getMessage());
+        }
+
+        try {
+            $auditLog = new AuditLog();
+            $displayName = $customerName ?: "Customer #{$customerId}";
+            $auditLog->record([
+                'customer_id' => (int)$customerId,
+                'customer_name' => $customerName,
+                'activity_category' => 'auth',
+                'activity_type' => 'logout',
+                'activity_title' => 'Customer logged out',
+                'description' => "{$displayName} logged out",
+                'metadata' => [
+                    'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                ],
+                'actor_type' => 'customer',
+                'actor_name' => $customerName,
+            ]);
+        } catch (Exception $e) {
+            error_log('Audit log logout error: ' . $e->getMessage());
+        }
     }
     
     // For session-based authentication, you would destroy the session here:

@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 require_once '../class/Attendance.php';
+require_once '../class/AuditLog.php';
 
 try {
     $payload = json_decode(file_get_contents('php://input'), true) ?? [];
@@ -63,6 +64,41 @@ try {
 
     $attendance = new Attendance();
     $snapshot = $attendance->recordScan($customerId, $adminPayload, $platform);
+
+    $status = strtoupper((string)($snapshot['status'] ?? ($snapshot['is_clocked_in'] ? 'IN' : 'OUT')));
+    $activityType = $status === 'IN' ? 'attendance_in' : 'attendance_out';
+    $activityTitle = $status === 'IN' ? 'Customer timed in' : 'Customer timed out';
+    $customerName = $snapshot['customer_name'] ?? null;
+    $actorName = $snapshot['verified_by'] ?? ($adminPayload['name'] ?? null);
+
+    try {
+        $auditLog = new AuditLog();
+        $auditLog->record([
+            'customer_id' => $snapshot['customer_id'] ?? $customerId,
+            'customer_name' => $customerName,
+            'admin_id' => $snapshot['verified_by_admin_id'] ?? ($adminPayload['adminId'] ?? null),
+            'actor_type' => isset($adminPayload['adminId']) ? 'admin' : 'system',
+            'actor_name' => $actorName,
+            'activity_category' => 'attendance',
+            'activity_type' => $activityType,
+            'activity_title' => $activityTitle,
+            'description' => sprintf(
+                '%s %s %s',
+                $customerName ? $customerName : "Customer #{$customerId}",
+                $status === 'IN' ? 'timed in' : 'timed out',
+                $actorName ? "verified by {$actorName}" : 'without verification'
+            ),
+            'metadata' => [
+                'attendance_id' => $snapshot['attendance_id'] ?? null,
+                'time_in' => $snapshot['last_time_in'] ?? null,
+                'time_out' => $snapshot['last_time_out'] ?? null,
+                'platform' => $snapshot['platform'] ?? $platform,
+                'verified_by_admin_id' => $snapshot['verified_by_admin_id'] ?? null,
+            ],
+        ]);
+    } catch (Exception $e) {
+        error_log('Audit log recordScan error: ' . $e->getMessage());
+    }
 
     echo json_encode([
         'success' => true,

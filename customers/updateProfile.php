@@ -5,6 +5,7 @@ header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
 require_once '../class/Customer.php';
+require_once '../class/AuditLog.php';
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -62,11 +63,35 @@ try {
     
     // Prepare data for update
     // Fetch current values to backfill
-    $customer = new Customer();
-    $currentRows = $customer->getById($customerId);
+$customer = new Customer();
+$currentRows = $customer->getById($customerId);
     $current = ($currentRows && count($currentRows) > 0) ? $currentRows[0] : [];
 
     function valOrNull($arr, $key) { return isset($arr[$key]) && strlen(trim($arr[$key])) > 0 ? trim($arr[$key]) : null; }
+function normalizeAuditValue($value) {
+    if ($value === null) {
+        return null;
+    }
+
+    if (is_string($value)) {
+        $trimmed = trim($value);
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    return $value;
+}
+
+function addAuditChange(array &$changes, string $field, $old, $new): void {
+    $normalizedOld = normalizeAuditValue($old);
+    $normalizedNew = normalizeAuditValue($new);
+
+    if ($normalizedOld !== $normalizedNew) {
+        $changes[$field] = [
+            'old' => $normalizedOld,
+            'new' => $normalizedNew,
+        ];
+    }
+}
 
     $data = [
         'firstName' => valOrNull($input, 'first_name') ?? ($current['first_name'] ?? null),
@@ -101,11 +126,12 @@ try {
     }
     
     // Create customer instance and attempt update
-    $result = $customer->updateCustomersByID($customerId, $data);
+$result = $customer->updateCustomersByID($customerId, $data);
     
     if ($result) {
         // Also update address if provided
         $addressUpdated = true;
+        $addressStringForLogging = null;
         if (isset($input['address_details']) && is_array($input['address_details'])) {
             // Convert address array to string format for the updateCustomerAddress method
             $addressString = implode(', ', array_filter([
@@ -115,7 +141,75 @@ try {
                 $input['address_details']['postal_code'] ?? '',
                 $input['address_details']['country'] ?? ''
             ]));
+            $addressStringForLogging = $addressString;
             $addressUpdated = $customer->updateCustomerAddress($customerId, $addressString);
+        }
+
+        $changes = [];
+        addAuditChange($changes, 'first_name', $current['first_name'] ?? null, $data['firstName']);
+        addAuditChange($changes, 'middle_name', $current['middle_name'] ?? null, $data['middleName']);
+        addAuditChange($changes, 'last_name', $current['last_name'] ?? null, $data['lastName']);
+        addAuditChange($changes, 'email', $current['email'] ?? null, $data['email']);
+        addAuditChange($changes, 'birthdate', $current['birthdate'] ?? null, $data['birthdate']);
+        addAuditChange($changes, 'phone_number', $current['phone_number'] ?? null, $data['phoneNumber']);
+        addAuditChange(
+            $changes,
+            'emergency_contact_name',
+            $current['emergency_contact_name'] ?? null,
+            $data['emergencyContactName']
+        );
+        addAuditChange(
+            $changes,
+            'emergency_contact_number',
+            $current['emergency_contact_number'] ?? null,
+            $data['emergencyContactNumber']
+        );
+
+        if ($addressStringForLogging !== null) {
+            $changes['address'] = [
+                'old' => $current['address'] ?? null,
+                'new' => $addressStringForLogging,
+            ];
+        }
+
+        if (!empty($changes)) {
+            $sections = [];
+            $personalFields = ['first_name', 'middle_name', 'last_name', 'email', 'birthdate', 'phone_number'];
+            $emergencyFields = ['emergency_contact_name', 'emergency_contact_number'];
+
+            if (count(array_intersect(array_keys($changes), $personalFields)) > 0) {
+                $sections[] = 'personal_information';
+            }
+            if (count(array_intersect(array_keys($changes), $emergencyFields)) > 0) {
+                $sections[] = 'emergency_contact';
+            }
+            if (isset($changes['address'])) {
+                $sections[] = 'address';
+            }
+
+            $customerName = trim(($current['first_name'] ?? '') . ' ' . ($current['last_name'] ?? ''));
+            try {
+                $auditLog = new AuditLog();
+                $auditLog->record([
+                    'customer_id' => $customerId,
+                    'customer_name' => $customerName ?: null,
+                    'activity_category' => 'profile',
+                    'activity_type' => 'profile_update',
+                    'activity_title' => 'Customer updated profile',
+                    'description' => $sections
+                        ? 'Updated ' . implode(', ', str_replace('_', ' ', $sections))
+                        : 'Profile updated',
+                    'metadata' => [
+                        'sections' => $sections,
+                        'changes' => $changes,
+                        'initiated_by' => 'customer',
+                    ],
+                    'actor_type' => 'customer',
+                    'actor_name' => $customerName ?: null,
+                ]);
+            } catch (Exception $e) {
+                error_log('Audit log profile update error: ' . $e->getMessage());
+            }
         }
         
         http_response_code(200);

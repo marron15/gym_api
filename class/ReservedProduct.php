@@ -183,6 +183,32 @@ class ReservedProduct
         }
     }
 
+    public function getReservationById(int $reservationId): ?array
+    {
+        try {
+            $this->ensureConnection();
+            $sql = "
+                SELECT
+                    rp.*,
+                    p.name AS product_name,
+                    c.first_name AS customer_first_name,
+                    c.last_name AS customer_last_name
+                FROM `reserved_products` rp
+                LEFT JOIN `products` p ON p.id = rp.product_id
+                LEFT JOIN `customers` c ON c.id = rp.customer_id
+                WHERE rp.id = :reservationId
+                LIMIT 1
+            ";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindValue(':reservationId', $reservationId, PDO::PARAM_INT);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $row ?: null;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
     public function updateStatus($reservationId, $status, $declineNote = null)
     {
         $allowedStatuses = ['pending', 'accepted', 'declined', 'cancelled'];
@@ -286,7 +312,13 @@ class ReservedProduct
             $update->execute($updateParams);
 
             $this->conn->commit();
-            $response = ['success' => true];
+            $reservationDetails = $this->getReservationById($reservationId);
+            $response = [
+                'success' => true,
+                'previous_status' => $currentStatus,
+                'new_status' => $status,
+                'reservation' => $reservationDetails ?: $reservation,
+            ];
             if (!$supportsDeclineNote && $declineNote !== null && $declineNote !== '') {
                 $response['message'] = 'Decline note not stored (column missing).';
             }

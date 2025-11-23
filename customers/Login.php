@@ -9,6 +9,7 @@ header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
 require_once '../class/Customer.php';
+require_once '../class/AuditLog.php';
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -67,8 +68,34 @@ try {
     $loginResult = $customer->login($email, $password);
     
     if ($loginResult['success']) {
+        $customerId = $loginResult['customer']['id'];
+        $customerFullName = trim(
+            ($loginResult['customer']['first_name'] ?? '') . ' ' . ($loginResult['customer']['last_name'] ?? '')
+        );
+        try {
+            $auditLog = new AuditLog();
+            $auditLog->record([
+                'customer_id' => $customerId,
+                'customer_name' => $customerFullName ?: null,
+                'activity_category' => 'auth',
+                'activity_type' => 'login',
+                'activity_title' => 'Customer logged in',
+                'description' => $customerFullName
+                    ? "{$customerFullName} logged in"
+                    : "Customer #{$customerId} logged in",
+                'metadata' => [
+                    'ip_address' => $_SERVER['REMOTE_ADDR'] ?? null,
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                ],
+                'actor_type' => 'customer',
+                'actor_name' => $customerFullName ?: null,
+            ]);
+        } catch (Exception $e) {
+            error_log('Audit log login error: ' . $e->getMessage());
+        }
+
         // Enrich with address information
-        $customerWithAddress = $customer->getCustomerWithAddress($loginResult['customer']['id']);
+        $customerWithAddress = $customer->getCustomerWithAddress($customerId);
         $addressStr = $customerWithAddress['address'] ?? null;
         $addressDetails = $customerWithAddress['address_details'] ?? null;
         http_response_code(200);

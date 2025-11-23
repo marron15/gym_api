@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../class/ReservedProduct.php';
+require_once '../class/AuditLog.php';
 
 $reservedProduct = new ReservedProduct();
 
@@ -47,6 +48,42 @@ if ($quantity <= 0) {
 $result = $reservedProduct->createReservation($customerId, $productId, $quantity, $notes);
 
 if ($result['success'] ?? false) {
+    try {
+        $auditLog = new AuditLog();
+        $details = null;
+        if (!empty($result['reservation_id'])) {
+            $details = $reservedProduct->getReservationById((int)$result['reservation_id']);
+        }
+        $customerName = null;
+        if ($details) {
+            $customerName = trim(($details['customer_first_name'] ?? '') . ' ' . ($details['customer_last_name'] ?? ''));
+        }
+
+        $auditLog->record([
+            'customer_id' => $customerId,
+            'customer_name' => $customerName,
+            'activity_category' => 'reservation',
+            'activity_type' => 'reservation_created',
+            'activity_title' => 'Customer requested product reservation',
+            'description' => sprintf(
+                'Requested %d x product #%d',
+                $quantity,
+                $productId
+            ),
+            'metadata' => [
+                'reservation_id' => $result['reservation_id'] ?? null,
+                'product_id' => $productId,
+                'product_name' => $details['product_name'] ?? null,
+                'quantity' => $quantity,
+                'notes' => $notes,
+                'status' => 'pending',
+            ],
+            'actor_type' => 'customer',
+        ]);
+    } catch (Exception $e) {
+        error_log('Audit log reservation create error: ' . $e->getMessage());
+    }
+
     echo json_encode($result);
 } else {
     http_response_code(400);
