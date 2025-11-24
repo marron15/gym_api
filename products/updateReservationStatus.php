@@ -42,25 +42,34 @@ if ($result['success'] ?? false) {
             $customerName = trim(($details['customer_first_name'] ?? '') . ' ' . ($details['customer_last_name'] ?? ''));
         }
         $normalizedStatus = strtolower((string)$status);
+        $productName = $details['product_name'] ?? 'Unknown Product';
+        $quantity = $details['quantity'] ?? 0;
+        
+        // Build detailed description
+        $description = ($adminName ?: 'An admin') . ' ' . $normalizedStatus . ' reservation #' . $reservationId;
+        if ($customerName) {
+            $description .= ' for customer: ' . $customerName;
+        }
+        $description .= '. Product: ' . $productName . ' (Qty: ' . $quantity . ')';
+        if ($normalizedStatus === 'declined' && $declineNote) {
+            $description .= '. Reason: ' . trim($declineNote);
+        }
+        
         $auditLog->record([
             'customer_id' => $customerId,
             'customer_name' => $customerName ?: null,
             'admin_id' => $adminId ? (int)$adminId : null,
             'actor_type' => 'admin',
             'actor_name' => $adminName ? trim((string)$adminName) : null,
-            'activity_category' => 'reservation',
-            'activity_type' => 'reservation_status_' . $normalizedStatus,
-            'activity_title' => 'Reservation ' . ucfirst($normalizedStatus),
-            'description' => sprintf(
-                'Reservation #%s set to %s',
-                $reservationId,
-                ucfirst($normalizedStatus)
-            ),
+            'activity_category' => 'admin',
+            'activity_type' => 'reservation_' . $normalizedStatus,
+            'activity_title' => 'Admin ' . ucfirst($normalizedStatus) . ' reservation',
+            'description' => $description,
             'metadata' => [
                 'reservation_id' => $reservationId,
                 'product_id' => $details['product_id'] ?? null,
-                'product_name' => $details['product_name'] ?? null,
-                'quantity' => $details['quantity'] ?? null,
+                'product_name' => $productName,
+                'quantity' => $quantity,
                 'previous_status' => $result['previous_status'] ?? null,
                 'new_status' => $result['new_status'] ?? $normalizedStatus,
                 'decline_note' => $declineNote,
