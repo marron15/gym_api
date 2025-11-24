@@ -73,27 +73,31 @@ try {
 
     try {
         $auditLog = new AuditLog();
+        // Time in/out is a customer activity (customer performs the action)
+        // Admin verification is noted in description and metadata
+        $adminId = $snapshot['verified_by_admin_id'] ?? ($adminPayload['adminId'] ?? null);
         $auditLog->record([
             'customer_id' => $snapshot['customer_id'] ?? $customerId,
             'customer_name' => $customerName,
-            'admin_id' => $snapshot['verified_by_admin_id'] ?? ($adminPayload['adminId'] ?? null),
-            'actor_type' => isset($adminPayload['adminId']) ? 'admin' : 'system',
-            'actor_name' => $actorName,
+            'admin_id' => $adminId,
+            'actor_type' => 'customer', // Customer performs the time in/out action
+            'actor_name' => $customerName, // Customer is the actor
             'activity_category' => 'attendance',
             'activity_type' => $activityType,
             'activity_title' => $activityTitle,
             'description' => sprintf(
-                '%s %s %s',
+                '%s %s%s',
                 $customerName ? $customerName : "Customer #{$customerId}",
                 $status === 'IN' ? 'timed in' : 'timed out',
-                $actorName ? "verified by {$actorName}" : 'without verification'
+                $actorName ? " (verified by {$actorName})" : ''
             ),
             'metadata' => [
                 'attendance_id' => $snapshot['attendance_id'] ?? null,
                 'time_in' => $snapshot['last_time_in'] ?? null,
                 'time_out' => $snapshot['last_time_out'] ?? null,
                 'platform' => $snapshot['platform'] ?? $platform,
-                'verified_by_admin_id' => $snapshot['verified_by_admin_id'] ?? null,
+                'verified_by_admin_id' => $adminId,
+                'verified_by_admin_name' => $actorName,
             ],
         ]);
     } catch (Exception $e) {
