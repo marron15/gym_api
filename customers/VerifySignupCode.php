@@ -9,6 +9,7 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-W
 
 require_once __DIR__ . '/../class/Customer.php';
 require_once __DIR__ . '/../class/SignupVerification.php';
+require_once __DIR__ . '/../class/Mailer.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -120,6 +121,62 @@ try {
                 $payload['membership_start_date'] ?? null,
                 $payload['membership_end_date'] ?? null
             );
+
+            // Send membership creation notification if membership was successfully created by admin
+            $createdBy = $payload['created_by'] ?? '';
+            $isAdminCreated = in_array(strtolower($createdBy), ['admin', 'admin_portal']);
+            
+            if ($membershipCreated && $isAdminCreated && !empty($signupResult['customer']['email'])) {
+                try {
+                    $mailer = new Mailer();
+                    $customerName = trim(
+                        ($signupResult['customer']['first_name'] ?? '') . ' ' . 
+                        ($signupResult['customer']['last_name'] ?? '')
+                    );
+                    if (empty($customerName)) {
+                        $customerName = 'Member';
+                    }
+                    
+                    $startDate = $payload['membership_start_date'] ?? date('Y-m-d');
+                    $endDate = $payload['membership_end_date'] ?? null;
+                    
+                    // If end date is not provided, calculate it based on membership type
+                    if (!$endDate) {
+                        $membershipType = strtolower(trim($payload['membership_type']));
+                        $startDateTime = new DateTime($startDate);
+                        if ($membershipType === 'daily') {
+                            // Set expiration to 9 PM of the same day
+                            $endDateTime = clone $startDateTime;
+                            $endDateTime->setTime(21, 0, 0);
+                            // If created after 9 PM, expire at 9 PM next day
+                            if ($startDateTime->format('H') >= 21) {
+                                $endDateTime->add(new DateInterval('P1D'));
+                            }
+                            $endDate = $endDateTime->format('Y-m-d H:i:s');
+                        } elseif ($membershipType === 'half month' || $membershipType === 'halfmonth') {
+                            $endDateTime = clone $startDateTime;
+                            $endDateTime->add(new DateInterval('P15D'));
+                            $endDate = $endDateTime->format('Y-m-d');
+                        } else {
+                            // Monthly
+                            $endDateTime = clone $startDateTime;
+                            $endDateTime->add(new DateInterval('P30D'));
+                            $endDate = $endDateTime->format('Y-m-d');
+                        }
+                    }
+                    
+                    $mailer->sendMembershipCreatedNotification(
+                        $signupResult['customer']['email'],
+                        $customerName,
+                        $payload['membership_type'],
+                        $startDate,
+                        $endDate
+                    );
+                } catch (Exception $e) {
+                    // Log error but don't fail the signup process
+                    error_log('Failed to send membership creation notification: ' . $e->getMessage());
+                }
+            }
         }
 
         $verifier->deleteById((int)$pending['id']);
