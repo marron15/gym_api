@@ -685,7 +685,13 @@ class Customer
                 return false;
             }
 
-            $start = $startDate ?: date('Y-m-d');
+            // For Daily memberships, use current datetime to properly calculate 9 PM expiration
+            // For other types, use date only
+            if ($normalizedType === 'Daily' && $startDate === null) {
+                $start = date('Y-m-d H:i:s');
+            } else {
+                $start = $startDate ?: date('Y-m-d');
+            }
             $end = $expirationDate ?: $this->calculateMembershipEndDate($start, $normalizedType);
 
             $membership = new Membership();
@@ -742,8 +748,15 @@ class Customer
 
         switch ($membershipType) {
             case 'Daily':
-                $days = 1;
-                break;
+                // Set expiration to 9 PM of the same day (business hours: 11 AM - 9 PM)
+                // If created after 9 PM, expire at 9 PM next day
+                $startDateTime = new DateTime($startDate);
+                $expirationDateTime = new DateTime($startDateTime->format('Y-m-d') . ' 21:00:00');
+                // If created after 9 PM, set expiration to 9 PM next day
+                if ($startDateTime->format('H') >= 21) {
+                    $expirationDateTime->modify('+1 day');
+                }
+                return $expirationDateTime->format('Y-m-d H:i:s');
             case 'Half Month':
                 $days = 15;
                 break;

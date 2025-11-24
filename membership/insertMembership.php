@@ -56,17 +56,26 @@ if ($customerId <= 0 || $membershipType === null) {
 if (empty($expirationDate)) {
     switch ($membershipType) {
         case 'Daily':
-            $days = 1;
+            // Set expiration to 9 PM of the same day (business hours: 11 AM - 9 PM)
+            // If created after 9 PM, expire at 9 PM next day
+            $startDateTime = new DateTime($startDate);
+            $expirationDateTime = new DateTime($startDateTime->format('Y-m-d') . ' 21:00:00');
+            // If created after 9 PM, set expiration to 9 PM next day
+            if ($startDateTime->format('H') >= 21) {
+                $expirationDateTime->modify('+1 day');
+            }
+            $expirationDate = $expirationDateTime->format('Y-m-d H:i:s');
             break;
         case 'Half Month':
             $days = 15;
+            $expirationDate = date('Y-m-d', strtotime("+$days days", strtotime($startDate)));
             break;
         case 'Monthly':
         default:
             $days = 30;
+            $expirationDate = date('Y-m-d', strtotime("+$days days", strtotime($startDate)));
             break;
     }
-    $expirationDate = date('Y-m-d', strtotime("+$days days", strtotime($startDate)));
 }
 
 $data = [
