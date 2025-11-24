@@ -55,6 +55,7 @@ if ($result['success'] ?? false) {
             $description .= '. Reason: ' . trim($declineNote);
         }
         
+        // Admin activity log
         $auditLog->record([
             'customer_id' => $customerId,
             'customer_name' => $customerName ?: null,
@@ -75,6 +76,39 @@ if ($result['success'] ?? false) {
                 'decline_note' => $declineNote,
             ],
         ]);
+        
+        // Customer activity log (from customer's perspective)
+        if ($customerId) {
+            $customerDescription = 'Your product reservation #' . $reservationId . ' was ' . $normalizedStatus;
+            if ($productName) {
+                $customerDescription .= ' for: ' . $productName;
+            }
+            $customerDescription .= ' (Qty: ' . $quantity . ')';
+            if ($normalizedStatus === 'declined' && $declineNote) {
+                $customerDescription .= '. Reason: ' . trim($declineNote);
+            }
+            
+            $auditLog->record([
+                'customer_id' => $customerId,
+                'customer_name' => $customerName ?: null,
+                'actor_type' => 'customer',
+                'actor_name' => $customerName ?: null,
+                'activity_category' => 'reservation',
+                'activity_type' => 'reservation_' . $normalizedStatus,
+                'activity_title' => 'Reservation ' . ucfirst($normalizedStatus),
+                'description' => $customerDescription,
+                'metadata' => [
+                    'reservation_id' => $reservationId,
+                    'product_id' => $details['product_id'] ?? null,
+                    'product_name' => $productName,
+                    'quantity' => $quantity,
+                    'previous_status' => $result['previous_status'] ?? null,
+                    'new_status' => $result['new_status'] ?? $normalizedStatus,
+                    'decline_note' => $declineNote,
+                    'processed_by_admin' => $adminName,
+                ],
+            ]);
+        }
     } catch (Exception $e) {
         error_log('Audit log reservation status error: ' . $e->getMessage());
     }
