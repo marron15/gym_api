@@ -80,6 +80,7 @@ class AuditLog
      * @param array{
      *   activity_type?: string,
      *   activity_category?: string,
+     *   actor_type?: string,
      *   search?: string,
      *   customer_id?: int,
      *   limit?: int
@@ -113,6 +114,11 @@ class AuditLog
             if (!empty($filters['activity_category'])) {
                 $sql .= " AND cal.activity_category = :activityCategory";
                 $params[':activityCategory'] = $filters['activity_category'];
+            }
+
+            if (!empty($filters['actor_type'])) {
+                $sql .= " AND cal.actor_type = :actorType";
+                $params[':actorType'] = $filters['actor_type'];
             }
 
             if (!empty($filters['customer_id'])) {

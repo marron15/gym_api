@@ -33,6 +33,7 @@ try {
     $filters = [
         'activity_type' => isset($_GET['activity_type']) ? trim((string)$_GET['activity_type']) : null,
         'activity_category' => isset($_GET['activity_category']) ? trim((string)$_GET['activity_category']) : null,
+        'actor_type' => isset($_GET['actor_type']) ? trim((string)$_GET['actor_type']) : null,
         'search' => isset($_GET['search']) ? trim((string)$_GET['search']) : null,
         'limit' => isset($_GET['limit']) ? (int)$_GET['limit'] : null,
     ];
