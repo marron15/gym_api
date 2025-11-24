@@ -309,6 +309,28 @@ try {
             }
 
             $customerName = trim(($existingCustomer['first_name'] ?? '') . ' ' . ($existingCustomer['last_name'] ?? ''));
+            
+            // Build detailed description
+            $changeDescriptions = [];
+            foreach ($changes as $field => $changeData) {
+                $fieldLabel = str_replace('_', ' ', $field);
+                $oldVal = $changeData['old'] ?? 'N/A';
+                $newVal = $changeData['new'] ?? 'N/A';
+                
+                // Handle sensitive fields
+                if ($field === 'phone_number' || $field === 'emergency_contact_number') {
+                    $oldVal = $oldVal ? substr($oldVal, 0, 4) . '****' : 'N/A';
+                    $newVal = $newVal ? substr($newVal, 0, 4) . '****' : 'N/A';
+                }
+                
+                $changeDescriptions[] = ucfirst($fieldLabel) . ': ' . ($oldVal ?: 'empty') . ' → ' . ($newVal ?: 'empty');
+            }
+            
+            $description = ($adminName ?: 'An admin') . ' updated customer: ' . ($customerName ?: 'ID ' . $id);
+            if (!empty($changeDescriptions)) {
+                $description .= '. Changes: ' . implode(', ', $changeDescriptions);
+            }
+            
             try {
                 $auditLog = new AuditLog();
                 $auditLog->record([
@@ -317,12 +339,10 @@ try {
                     'admin_id' => $adminId,
                     'actor_type' => 'admin',
                     'actor_name' => $adminName ?: null,
-                    'activity_category' => 'profile',
-                    'activity_type' => 'profile_update_admin',
+                    'activity_category' => 'admin',
+                    'activity_type' => 'customer_updated',
                     'activity_title' => 'Admin updated customer profile',
-                    'description' => $sections
-                        ? (($adminName ?: 'An admin') . ' updated ' . implode(', ', str_replace('_', ' ', $sections)))
-                        : (($adminName ?: 'An admin') . ' updated the customer profile'),
+                    'description' => $description,
                     'metadata' => [
                         'sections' => $sections,
                         'changes' => $changes,
