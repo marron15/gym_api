@@ -5,17 +5,18 @@ ini_set('display_errors', 0);
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
-
-require_once '../class/Customer.php';
-require_once '../class/AuditLog.php';
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
+
+require_once '../class/Customer.php';
+require_once '../class/Admin.php';
+require_once '../class/AuditLog.php';
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -63,6 +64,29 @@ try {
         exit();
     }
     
+    // First attempt Admin login
+    $admin = new Admin();
+    $adminLoginResult = $admin->login($email, $password);
+    
+    if ($adminLoginResult['success']) {
+        http_response_code(200);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Admin login successful',
+            'role' => 'admin',
+            'admin' => $adminLoginResult['admin'],
+            'access_token' => $adminLoginResult['access_token'],
+            'refresh_token' => $adminLoginResult['refresh_token'],
+            'token_type' => $adminLoginResult['token_type'],
+            'expires_in' => $adminLoginResult['expires_in']
+        ]);
+        exit();
+    }
+
+    // Prepare for Customer attempt
+    // If admin login simply failed due to wrong password, we shouldn't necessarily assume customer lookup will succeed,
+    // but we fall through to Customer lookup gracefully.
+    
     // Create customer instance and attempt login
     $customer = new Customer();
     $loginResult = $customer->login($email, $password);
@@ -102,6 +126,7 @@ try {
         echo json_encode([
             'success' => true,
             'message' => 'Login successful',
+            'role' => 'customer',
             'data' => [
                 'customer_id' => $loginResult['customer']['id'],
                 'email' => $loginResult['customer']['email'],
@@ -127,7 +152,7 @@ try {
         http_response_code(401);
         echo json_encode([
             'success' => false,
-            'message' => $loginResult['message']
+            'message' => 'Invalid email or password'
         ]);
     }
     
