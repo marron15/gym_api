@@ -133,6 +133,124 @@ class Products
         return false;       
     }
 
+    public function existsByName($name)
+    {
+        $incoming = $this->normalizeName($name);
+        if ($incoming === '') {
+            return false;
+        }
+        $incomingCore = $this->removeGenericTerms($incoming);
+
+        $sql = "SELECT `name` FROM `products`";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $incomingNums = $this->extractNumberTokens($incoming);
+
+        foreach ($rows as $row) {
+            $existing = $this->normalizeName($row['name'] ?? '');
+            if ($existing === '') {
+                continue;
+            }
+            $existingCore = $this->removeGenericTerms($existing);
+
+            // Exact match after normalization.
+            if ($existing === $incoming || $existingCore === $incomingCore) {
+                return true;
+            }
+
+            // Catch shortened names and shared-base variants.
+            $prefixMatch = (strpos($existingCore, $incomingCore) === 0) || (strpos($incomingCore, $existingCore) === 0);
+            $tokenMatch = $this->hasTokenOverlap($incomingCore, $existingCore);
+            if (!$prefixMatch && !$tokenMatch) {
+                continue;
+            }
+
+            $existingNums = $this->extractNumberTokens($existing);
+
+            // If either has numeric tokens, require exact-or-prefix numeric relation.
+            if (!empty($incomingNums) || !empty($existingNums)) {
+                if ($this->numbersEquivalentOrPrefix($incomingNums, $existingNums)) {
+                    return true;
+                }
+                continue;
+            }
+
+            // Without numbers, enforce minimum shared base length.
+            if (min(strlen($existingCore), strlen($incomingCore)) >= 5) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizeName($name)
+    {
+        $v = strtolower(trim((string)$name));
+        $v = preg_replace('/[^a-z0-9\s]+/', ' ', $v);
+        $v = preg_replace('/\s+/', ' ', $v);
+        return trim($v);
+    }
+
+    private function extractNumberTokens($value)
+    {
+        preg_match_all('/\d+/', (string)$value, $matches);
+        return $matches[0] ?? [];
+    }
+
+    private function removeGenericTerms($value)
+    {
+        $words = array_filter(explode(' ', (string)$value));
+        $stop = [
+            'in', 'with', 'and', 'the', 'for', 'of',
+            'tab', 'tabs', 'sachet', 'sachets', 'pack', 'packs', 'powder'
+        ];
+        $filtered = [];
+        foreach ($words as $w) {
+            if (in_array($w, $stop, true)) {
+                continue;
+            }
+            $filtered[] = $w;
+        }
+        return trim(implode(' ', $filtered));
+    }
+
+    private function hasTokenOverlap($a, $b)
+    {
+        $aTokens = array_values(array_filter(explode(' ', (string)$a), function ($v) {
+            return strlen($v) >= 3;
+        }));
+        $bTokens = array_values(array_filter(explode(' ', (string)$b), function ($v) {
+            return strlen($v) >= 3;
+        }));
+        if (empty($aTokens) || empty($bTokens)) {
+            return false;
+        }
+        $overlap = array_intersect($aTokens, $bTokens);
+        return !empty($overlap);
+    }
+
+    private function numbersEquivalentOrPrefix($aNums, $bNums)
+    {
+        $a = array_values($aNums ?? []);
+        $b = array_values($bNums ?? []);
+        if ($a === $b) {
+            return true;
+        }
+
+        if (count($a) === 1 && count($b) === 1) {
+            $x = (string)$a[0];
+            $y = (string)$b[0];
+            if (min(strlen($x), strlen($y)) >= 2 && ((strpos($x, $y) === 0) || (strpos($y, $x) === 0))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function getByStatus($status)
     {
         if (!$this->hasColumn('status')) {

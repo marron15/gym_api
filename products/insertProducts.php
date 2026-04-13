@@ -16,8 +16,8 @@ $products = new Products();
 $input = file_get_contents('php://input');
 $json = json_decode($input, true);
 
-$name = $_POST['name'] ?? ($json['name'] ?? '');
-$description = $_POST['description'] ?? ($json['description'] ?? '');
+$name = trim($_POST['name'] ?? ($json['name'] ?? ''));
+$description = trim($_POST['description'] ?? ($json['description'] ?? ''));
 $status = 1; // active by default
 $img = $_POST['img'] ?? ($json['img'] ?? '');
 $createdBy = 1;
@@ -26,6 +26,15 @@ $createdAt = date('Y-m-d H:i:s');
 if ($name === '' || $description === '' || $img === '') {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+    exit;
+}
+
+if ($products->existsByName($name)) {
+    http_response_code(409);
+    echo json_encode([
+        'success' => false,
+        'message' => 'This product already exists.'
+    ]);
     exit;
 }
 
