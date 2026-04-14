@@ -107,32 +107,39 @@ try {
     }
 
     $membershipType = !empty($input['membership_type']) ? trim($input['membership_type']) : null;
+    $normalizedMembershipKey = strtolower(str_replace(' ', '', (string)$membershipType));
+    $isDailyMembership = $normalizedMembershipKey === 'daily';
+
     $membershipStartDate = null;
     if (!empty($input['membership_start_date'])) {
-        $start = DateTime::createFromFormat('Y-m-d', $input['membership_start_date']);
-        if (!$start || $start->format('Y-m-d') !== $input['membership_start_date']) {
+        $start = parseMembershipDate($input['membership_start_date'], $isDailyMembership);
+        if ($start === false) {
             http_response_code(400);
             echo json_encode([
                 'success' => false,
-                'message' => 'Invalid membership start date format. Use YYYY-MM-DD.',
+                'message' => $isDailyMembership
+                    ? 'Invalid membership start date format. Use YYYY-MM-DD or YYYY-MM-DD HH:MM:SS.'
+                    : 'Invalid membership start date format. Use YYYY-MM-DD.',
             ]);
             exit();
         }
-        $membershipStartDate = $start->format('Y-m-d');
+        $membershipStartDate = $start->format($isDailyMembership ? 'Y-m-d H:i:s' : 'Y-m-d');
     }
 
     $membershipEndDate = null;
     if (!empty($input['membership_end_date'])) {
-        $end = DateTime::createFromFormat('Y-m-d', $input['membership_end_date']);
-        if (!$end || $end->format('Y-m-d') !== $input['membership_end_date']) {
+        $end = parseMembershipDate($input['membership_end_date'], $isDailyMembership);
+        if ($end === false) {
             http_response_code(400);
             echo json_encode([
                 'success' => false,
-                'message' => 'Invalid membership end date format. Use YYYY-MM-DD.',
+                'message' => $isDailyMembership
+                    ? 'Invalid membership end date format. Use YYYY-MM-DD or YYYY-MM-DD HH:MM:SS.'
+                    : 'Invalid membership end date format. Use YYYY-MM-DD.',
             ]);
             exit();
         }
-        $membershipEndDate = $end->format('Y-m-d');
+        $membershipEndDate = $end->format($isDailyMembership ? 'Y-m-d H:i:s' : 'Y-m-d');
     }
 
     $customer = new Customer();
@@ -201,6 +208,27 @@ function sanitizePhone(?string $value)
     if (strlen($digits) === 11 && substr($digits, 0, 2) === '09') {
         return $digits;
     }
+    return false;
+}
+
+function parseMembershipDate($value, $allowTime = false)
+{
+    $raw = trim((string)$value);
+    if ($raw === '') {
+        return false;
+    }
+
+    $formats = $allowTime
+        ? ['Y-m-d H:i:s', 'Y-m-d\TH:i:s', 'Y-m-d']
+        : ['Y-m-d'];
+
+    foreach ($formats as $format) {
+        $parsed = DateTime::createFromFormat($format, $raw);
+        if ($parsed && $parsed->format($format) === $raw) {
+            return $parsed;
+        }
+    }
+
     return false;
 }
 

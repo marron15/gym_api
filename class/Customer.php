@@ -685,14 +685,20 @@ class Customer
                 return false;
             }
 
-            // For Daily memberships, use current datetime to properly calculate 9 PM expiration
-            // For other types, use date only
-            if ($normalizedType === 'Daily' && $startDate === null) {
-                $start = date('Y-m-d H:i:s');
+            $start = $this->normalizeMembershipStartDate($startDate, $normalizedType);
+
+            // Daily memberships always expire at 9:00 PM based on start date.
+            // Ignore provided expiration values to keep one consistent business rule.
+            if ($normalizedType === 'Daily') {
+                $end = $this->calculateMembershipEndDate($start, $normalizedType);
+            } elseif ($expirationDate !== null && trim((string)$expirationDate) !== '') {
+                $expirationTimestamp = strtotime((string)$expirationDate);
+                $end = $expirationTimestamp === false
+                    ? $this->calculateMembershipEndDate($start, $normalizedType)
+                    : date('Y-m-d', $expirationTimestamp);
             } else {
-                $start = $startDate ?: date('Y-m-d');
+                $end = $this->calculateMembershipEndDate($start, $normalizedType);
             }
-            $end = $expirationDate ?: $this->calculateMembershipEndDate($start, $normalizedType);
 
             $membership = new Membership();
             $payload = [
@@ -713,6 +719,27 @@ class Customer
             error_log("Error updating customer membership: " . $e->getMessage());
             return false;
         }
+    }
+
+    private function normalizeMembershipStartDate($startDate, $membershipType)
+    {
+        $raw = $startDate !== null ? trim((string)$startDate) : '';
+
+        if ($membershipType === 'Daily') {
+            if ($raw === '') {
+                return date('Y-m-d H:i:s');
+            }
+
+            $timestamp = strtotime($raw);
+            return $timestamp === false ? date('Y-m-d H:i:s') : date('Y-m-d H:i:s', $timestamp);
+        }
+
+        if ($raw === '') {
+            return date('Y-m-d');
+        }
+
+        $timestamp = strtotime($raw);
+        return $timestamp === false ? date('Y-m-d') : date('Y-m-d', $timestamp);
     }
 
     private function normalizeMembershipType($value)
