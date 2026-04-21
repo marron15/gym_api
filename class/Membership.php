@@ -149,21 +149,22 @@ class Membership
         $data['updatedBy'] = $data['updatedBy'] ?? 0;
 
         if ($existing) {
-            $data['createdBy'] = $existing['created_by'] ?? ($data['createdBy'] ?? 0);
-            $data['createdAt'] = $existing['created_at'] ?? ($data['createdAt'] ?? $now);
-            $result = $this->updateServicesByID((int)$existing['id'], $data);
+            $incomingType = $this->normalizeStatus($data['membershipType'] ?? $data['status'] ?? null);
+            $existingType = $this->normalizeStatus($existing['membership_type'] ?? $existing['status'] ?? null);
+            $incomingStart = trim((string)($data['startDate'] ?? ''));
+            $incomingEnd = trim((string)($data['expirationDate'] ?? ''));
+            $existingStart = trim((string)($existing['start_date'] ?? ''));
+            $existingEnd = trim((string)($existing['expiration_date'] ?? ''));
 
-            if ($result) {
+            // Keep idempotency for exact retries so we do not create duplicate rows.
+            if ($incomingType === $existingType &&
+                $incomingStart === $existingStart &&
+                $incomingEnd === $existingEnd) {
                 return [
                     'membership_id' => (int)$existing['id'],
-                    'operation' => 'updated'
+                    'operation' => 'unchanged'
                 ];
             }
-
-            return [
-                'membership_id' => (int)$existing['id'],
-                'operation' => 'unchanged'
-            ];
         }
 
         $data['createdBy'] = $data['createdBy'] ?? 0;
