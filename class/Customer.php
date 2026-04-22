@@ -256,7 +256,8 @@ class Customer
                 $membershipType = $data['membershipType'] ?? $data['membership_type'];
                 $membershipStart = $data['membershipStartDate'] ?? $data['membership_start_date'] ?? null;
                 $membershipEnd = $data['membershipExpirationDate'] ?? $data['membership_expiration_date'] ?? null;
-                $membershipUpdated = $this->upsertCustomerMembership($id, $membershipType, $membershipStart, $membershipEnd);
+                $membershipUpdatedBy = $data['membershipUpdatedBy'] ?? $data['updatedBy'] ?? 'system';
+                $membershipUpdated = $this->upsertCustomerMembership($id, $membershipType, $membershipStart, $membershipEnd, $membershipUpdatedBy);
             }
             
             // Check if password is included in the data
@@ -677,7 +678,7 @@ class Customer
     /**
      * Insert or update a customer's membership record.
      */
-    public function upsertCustomerMembership($customerId, $membershipType, $startDate = null, $expirationDate = null)
+    public function upsertCustomerMembership($customerId, $membershipType, $startDate = null, $expirationDate = null, $updatedBy = 'system')
     {
         try {
             $normalizedType = $this->normalizeMembershipType($membershipType);
@@ -701,15 +702,19 @@ class Customer
             }
 
             $membership = new Membership();
+            $updatedByValue = trim((string)$updatedBy);
+            if ($updatedByValue === '') {
+                $updatedByValue = 'system';
+            }
             $payload = [
                 'customerId' => $customerId,
                 'membershipType' => $normalizedType,
                 'startDate' => $start,
                 'expirationDate' => $end,
                 'status' => $normalizedType,
-                'createdBy' => 0,
+                'createdBy' => $updatedByValue,
                 'createdAt' => date('Y-m-d H:i:s', strtotime($start)),
-                'updatedBy' => 0,
+                'updatedBy' => $updatedByValue,
                 'updatedAt' => date('Y-m-d H:i:s')
             ];
 

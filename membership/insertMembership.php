@@ -40,10 +40,15 @@ $membershipType = normalize_membership_label($rawMembershipType);
 $startDate = $_POST['startDate'] ?? date('Y-m-d');
 $expirationDate = $_POST['expirationDate'] ?? '';
 $status = $_POST['status'] ?? $membershipType;
-$createdBy = isset($_POST['createdBy']) ? (int)$_POST['createdBy'] : 0;
+$createdById = isset($_POST['createdById']) ? (int)$_POST['createdById'] : 0;
+$updatedById = isset($_POST['updatedById']) ? (int)$_POST['updatedById'] : 0;
+$createdByName = isset($_POST['createdBy']) ? trim((string)$_POST['createdBy']) : '';
+$updatedByName = isset($_POST['updatedBy']) ? trim((string)$_POST['updatedBy']) : '';
+
+$createdBy = $createdById > 0 ? (string)$createdById : ($createdByName !== '' ? $createdByName : 'system');
 $createdAt = $_POST['createdAt'] ?? date('Y-m-d H:i:s');
 $updatedAt = $_POST['updatedAt'] ?? date('Y-m-d H:i:s');
-$updatedBy = isset($_POST['updatedBy']) ? (int)$_POST['updatedBy'] : 0;
+$updatedBy = $updatedById > 0 ? (string)$updatedById : ($updatedByName !== '' ? $updatedByName : $createdBy);
 
 if ($customerId <= 0 || $membershipType === null) {
     echo json_encode([

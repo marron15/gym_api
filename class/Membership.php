@@ -14,11 +14,38 @@ class Membership
 
     public function getAll()
     {
-        $sql = "SELECT * FROM `memberships`";
+        $sql = "SELECT m.*, 
+                       TRIM(
+                           COALESCE(
+                               NULLIF(TRIM(CONCAT(COALESCE(a.first_name, ''), ' ', COALESCE(a.last_name, ''))), ''),
+                               NULLIF(TRIM(CAST(m.updated_by AS CHAR)), ''),
+                               NULLIF(TRIM(CAST(m.created_by AS CHAR)), '')
+                           )
+                       ) AS verified_by 
+                FROM `memberships` m
+                LEFT JOIN `admins` a ON a.id = CASE 
+                                            WHEN m.updated_by IS NOT NULL
+                                                 AND TRIM(CAST(m.updated_by AS CHAR)) != ''
+                                                 AND TRIM(CAST(m.updated_by AS CHAR)) != '0'
+                                              THEN CAST(m.updated_by AS UNSIGNED)
+                                            WHEN m.created_by IS NOT NULL
+                                                 AND TRIM(CAST(m.created_by AS CHAR)) != ''
+                                                 AND TRIM(CAST(m.created_by AS CHAR)) != '0'
+                                              THEN CAST(m.created_by AS UNSIGNED)
+                                            ELSE 0
+                                         END";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fallback for missing admin names
+        foreach ($result as &$row) {
+            if (empty($row['verified_by']) || $row['verified_by'] === '0') {
+                // Keep '0' logic out, replace with a recognizable name or empty string to let frontend display '—'
+                $row['verified_by'] = ''; 
+            }
+        }
 
         return $result;
     }

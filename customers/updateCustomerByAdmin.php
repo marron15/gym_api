@@ -184,6 +184,7 @@ try {
     }
     
     // Prepare data for update (admin can update password)
+    $adminName = trim($input['admin_name'] ?? '');
     $data = [
         'firstName' => trim($input['first_name']),
         'middleName' => isset($input['middle_name']) && !empty(trim($input['middle_name'])) ? trim($input['middle_name']) : null,
@@ -193,7 +194,7 @@ try {
         'phoneNumber' => isset($input['phone_number']) && !empty(trim($input['phone_number'])) ? trim($input['phone_number']) : null,
         'emergencyContactName' => isset($input['emergency_contact_name']) && !empty(trim($input['emergency_contact_name'])) ? trim($input['emergency_contact_name']) : null,
         'emergencyContactNumber' => isset($input['emergency_contact_number']) && !empty(trim($input['emergency_contact_number'])) ? trim($input['emergency_contact_number']) : null,
-        'updatedBy' => 'admin_update',
+        'updatedBy' => $adminName !== '' ? $adminName : 'admin_update',
         'updatedAt' => date('Y-m-d H:i:s'),
         'img' => isset($input['img']) && !empty(trim($input['img'])) ? trim($input['img']) : null,
         'status' => isset($input['status']) && $input['status'] !== ''
@@ -203,6 +204,9 @@ try {
 
     if (!empty($input['membership_type']) || !empty($input['membershipType'])) {
         $data['membershipType'] = $input['membership_type'] ?? $input['membershipType'];
+        if ($adminName !== '') {
+            $data['membershipUpdatedBy'] = $adminName;
+        }
         if (!empty($input['membership_start_date']) || !empty($input['membershipStartDate'])) {
             $data['membershipStartDate'] = $input['membership_start_date'] ?? $input['membershipStartDate'];
         }
@@ -291,7 +295,6 @@ try {
         }
 
         $adminId = isset($input['admin_id']) ? (int)$input['admin_id'] : null;
-        $adminName = trim($input['admin_name'] ?? '');
 
         if (!empty($changes)) {
             $sections = [];
